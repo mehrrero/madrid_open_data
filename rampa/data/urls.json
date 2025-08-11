@@ -1,1 +1,7 @@
-{"AREAS_ACTIVIDADES_PARA_MAYORES": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/AREAS_ACTIVIDADES_PARA_MAYORES/MapServer/0"}
+{
+    "AREAS_ACTIVIDADES_PARA_MAYORES": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/AREAS_ACTIVIDADES_PARA_MAYORES/MapServer/0",
+    "EJERCICIOS_PARA_MAYORES": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/AREAS_ACTIVIDADES_PARA_MAYORES/MapServer/1",
+    "ASEOS_PUBLICOS": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/ASEOS_PUBLICOS/MapServer/0",
+    "CUIDAR_A_QUIENES_NOS_CUIDAN": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/CUIDAR_A_QUIENES_NOS_CUIDAN/MapServer/0",
+    "JUNTOS_CONTRA_LA_SOLEDAD": "https://sigma.madrid.es/hosted/rest/services/GEOPORTAL/JUNTOS_CONTRA_LA_SOLEDAD/MapServer/0"
+}
