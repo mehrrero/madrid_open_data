@@ -40,3 +40,22 @@ def load_extension(
         print(f"Could not load extension {extension}")
         pass
     return con
+
+def get_duckdb_connection(dbname: str = None) -> duckdb.DuckDBPyConnection:
+    """
+    Convenience function to get a DuckDB connection with common extensions loaded.
+    
+    Args:
+        dbname (str, optional): The name of the database to connect to.
+        
+    Returns:
+        duckdb.DuckDBPyConnection: A connection object to the database.
+    """
+    con = open_connection(dbname)
+    
+    # Load common extensions for geospatial work
+    load_extension(con, "spatial")
+    load_extension(con, "json")
+
+    return con
+    return con
