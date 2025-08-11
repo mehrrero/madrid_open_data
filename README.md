@@ -4,6 +4,31 @@
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
+[ArcGIS base URL](https://sigma.madrid.es/hosted/rest/services)
+
+## ArcGIS downloader
+
+A class to download data from the arcgis layers is provided within `rampa/query`. An example is given in `notebooks/download_arcgis.ipynb`.
+
+## Data
+
+- [obras de accesibilidad](https://datos.madrid.es/portal/site/egob/menuitem.c05c1f754a33a9fbe4b2e4b284f1a5a0/?vgnextoid=b721bf7618f23910VgnVCM1000001d4a900aRCRD&vgnextchannel=374512b9ace9f310VgnVCM100000171f5a0aRCRD&vgnextfmt=default)
+- Centros Municipales de mayores
+- Centros de Dia
+- Instalaciones Accesibles Municipales
+- Instalaciones Accesibles no municipales
+- Madrid Salud
+- Residencias de ancianos y apartamentos tutelados existentes en la ciudad de Madrid (datos georreferenciados)
+- Sedes. Centros de Atención Médica
+- Templos e iglesias católicas
+- Templos e iglesias no católicas
+- Personas que viven solas por Edad según Distrito y Barrio, y por Sexo (Explotación estadística)
+- Población por distrito y barrio a 1 de enero
+- Índices del INE
+- OSM con whell chair, etc
+
+
+
 A short description of the project.
 
 ## Project Organization
