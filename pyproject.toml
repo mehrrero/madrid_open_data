@@ -30,6 +30,7 @@ dependencies = [
     "scikit-learn",
     "arcgis",
     "tqdm>=4.67.1",
+    "loguru"
 ]
 requires-python = "~=3.12.0"
 

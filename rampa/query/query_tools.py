@@ -37,53 +37,100 @@ class ArcGISQuery():
             self.create_layer()
 
         features = self.layer.query(where=where, out_fields=out_fields, return_geometry=True)
-        gdf = gpd.GeoDataFrame(features.sdf, crs=self.layer.properties.extent.spatialReference['wkid'], geometry='SHAPE')
-
-        return gdf
+        
+        # Check if we have spatial data
+        if hasattr(features, 'sdf') and not features.sdf.empty:
+            df = features.sdf
+            
+            # Find the geometry column - it might be named differently
+            geometry_column = None
+            potential_geom_cols = ['SHAPE', 'geometry', 'geom', 'the_geom']
+            
+            for col in potential_geom_cols:
+                if col in df.columns:
+                    geometry_column = col
+                    break
+            
+            # If we found a geometry column, create a GeoDataFrame
+            if geometry_column is not None:
+                try:
+                    gdf = gpd.GeoDataFrame(
+                        df, 
+                        crs=self.layer.properties.extent.spatialReference['wkid'], 
+                        geometry=geometry_column
+                    )
+                    return gdf
+                except Exception as e:
+                    print(f"Failed to create GeoDataFrame with geometry column {geometry_column}: {e}")
+                    # Fall back to regular DataFrame
+                    return df
+            else:
+                # No geometry column found, return as regular DataFrame
+                print(f"No geometry column found in layer {self.url}. Available columns: {df.columns.tolist()}")
+                return df
+        else:
+            # No data returned
+            print(f"No data returned from layer {self.url}")
+            return gpd.GeoDataFrame()  # Return empty GeoDataFrame
     
-    def to_dict(self, gdf: gpd.GeoDataFrame) -> dict:
+    def to_dict(self, data) -> dict:
         """
-        Convert GeoDataFrame to a dictionary format suitable for storage.
+        Convert DataFrame or GeoDataFrame to a dictionary format suitable for storage.
         """
         # Make a copy to avoid modifying the original
-        gdf_copy = gdf.copy()
+        data_copy = data.copy()
         
         # Store datetime column info for reconstruction
         datetime_columns = {}
         
         # Convert datetime columns to ISO strings and track them
-        for col in gdf_copy.columns:
-            if pd.api.types.is_datetime64_any_dtype(gdf_copy[col]):
-                datetime_columns[col] = str(gdf_copy[col].dtype)
-                gdf_copy[col] = pd.to_datetime(gdf_copy[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
-            elif gdf_copy[col].dtype == 'object':
+        for col in data_copy.columns:
+            if pd.api.types.is_datetime64_any_dtype(data_copy[col]):
+                datetime_columns[col] = str(data_copy[col].dtype)
+                data_copy[col] = pd.to_datetime(data_copy[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
+            elif data_copy[col].dtype == 'object':
                 # Check if object column contains timestamps
-                sample = gdf_copy[col].dropna().iloc[0] if not gdf_copy[col].dropna().empty else None
+                sample = data_copy[col].dropna().iloc[0] if not data_copy[col].dropna().empty else None
                 if isinstance(sample, (pd.Timestamp, datetime)):
                     datetime_columns[col] = 'datetime64[ns]'
-                    gdf_copy[col] = pd.to_datetime(gdf_copy[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
+                    data_copy[col] = pd.to_datetime(data_copy[col]).dt.strftime('%Y-%m-%d %H:%M:%S')
         
-        # Convert GeoDataFrame to GeoJSON
-        try:
-            geojson = gdf_copy.to_json()
-        except TypeError:
-            # If there are still serialization issues, convert all object columns to strings
-            for col in gdf_copy.select_dtypes(include=['object']).columns:
-                if col != 'geometry':  # Don't convert geometry column
-                    gdf_copy[col] = gdf_copy[col].astype(str)
-            geojson = gdf_copy.to_json()
+        # Handle both GeoDataFrame and regular DataFrame
+        if isinstance(data_copy, gpd.GeoDataFrame):
+            # Convert GeoDataFrame to GeoJSON
+            try:
+                geojson = data_copy.to_json()
+                has_geometry = True
+                bounds = data_copy.total_bounds.tolist() if not data_copy.empty else None
+                crs = str(data.crs) if data.crs else None
+            except TypeError:
+                # If there are still serialization issues, convert all object columns to strings
+                for col in data_copy.select_dtypes(include=['object']).columns:
+                    if col != 'geometry':  # Don't convert geometry column
+                        data_copy[col] = data_copy[col].astype(str)
+                geojson = data_copy.to_json()
+                has_geometry = True
+                bounds = data_copy.total_bounds.tolist() if not data_copy.empty else None
+                crs = str(data.crs) if data.crs else None
+        else:
+            # Regular DataFrame - convert to JSON
+            geojson = data_copy.to_json(orient='records')
+            has_geometry = False
+            bounds = None
+            crs = None
         
         # Add metadata including datetime column info
         layer_data = {
-            'geojson': geojson,
-            'crs': str(gdf.crs) if gdf.crs else None,
+            'data': geojson,  # Changed from 'geojson' to 'data' for consistency
+            'crs': crs,
             'layer_type': self.type,
             'url': self.url,
-            'record_count': len(gdf),
-            'columns': list(gdf.columns),
-            'bounds': gdf.total_bounds.tolist() if not gdf.empty else None,
-            'dtypes': {col: str(dtype) for col, dtype in gdf.dtypes.items()},
-            'datetime_columns': datetime_columns  # Store which columns were datetime
+            'record_count': len(data),
+            'columns': list(data.columns),
+            'bounds': bounds,
+            'dtypes': {col: str(dtype) for col, dtype in data.dtypes.items()},
+            'datetime_columns': datetime_columns,
+            'has_geometry': has_geometry
         }
         
         return layer_data
@@ -153,18 +200,27 @@ class Data_Collection():
                 print(f"Loading layer {name} from database...")
                 try:
                     stored_data = get_layer_from_table(self.db_connection, name, source)
-                    # Convert back to GeoDataFrame
-                    gdf = gpd.read_file(stored_data['geojson'])
-                    if stored_data['crs']:
-                        gdf.crs = stored_data['crs']
+                    
+                    # Check if it has geometry
+                    if stored_data.get('has_geometry', True):  # Default to True for backward compatibility
+                        # Convert back to GeoDataFrame
+                        data_key = 'data' if 'data' in stored_data else 'geojson'  # Handle both old and new format
+                        gdf = gpd.read_file(stored_data[data_key])
+                        if stored_data['crs']:
+                            gdf.crs = stored_data['crs']
+                        result = gdf
+                    else:
+                        # Convert back to regular DataFrame
+                        data_key = 'data' if 'data' in stored_data else 'geojson'
+                        result = pd.read_json(stored_data[data_key])
                     
                     # Restore datetime columns if they exist
                     if 'datetime_columns' in stored_data:
                         for col, dtype in stored_data['datetime_columns'].items():
-                            if col in gdf.columns:
-                                gdf[col] = pd.to_datetime(gdf[col])
+                            if col in result.columns:
+                                result[col] = pd.to_datetime(result[col])
                     
-                    return gdf
+                    return result
                 except Exception as e:
                     print(f"Error loading from DB, querying from source: {e}")
         
@@ -177,13 +233,13 @@ class Data_Collection():
             
         return result
 
-    def store_layer_result(self, name: str, gdf: gpd.GeoDataFrame):
+    def store_layer_result(self, name: str, data):
         """
         Store a layer result in DuckDB.
         
         Args:
             name (str): Layer name
-            gdf (gpd.GeoDataFrame): GeoDataFrame to store
+            data: DataFrame or GeoDataFrame to store
         """
         if not self.db_connection:
             raise ValueError("No database connection provided.")
@@ -191,7 +247,7 @@ class Data_Collection():
         if name not in self.layers:
             raise ValueError(f"Layer {name} does not exist.")
             
-        layer_data = self.layers[name].to_dict(gdf)
+        layer_data = self.layers[name].to_dict(data)
         source = self.layers[name].url
         
         write_layer_to_table(self.db_connection, name, source, layer_data)
