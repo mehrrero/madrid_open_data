@@ -7,7 +7,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from rampa.duckdb.connection import get_duckdb_connection
-from rampa.query.query_tools import Data_Collection, OSMQuery
+from rampa.query.arcgis_tools import Data_Collection, OSMQuery
 
 loguru.logger.add("file_{time}.log")
 urls_file =  './rampa/data/urls.json'
