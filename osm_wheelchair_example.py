@@ -2,7 +2,7 @@
 # Simple examples using the new OSMQuery class in query_tools.py
 
 from rampa.duckdb.connection import get_duckdb_connection
-from rampa.query.query_tools import Data_Collection, OSMQuery
+from rampa.query.arcgis_tools import Data_Collection, OSMQuery
 
 def example_osm_with_class():
     """
