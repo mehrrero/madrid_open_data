@@ -16,6 +16,8 @@ from rampa.duckdb.operations import write_layer_to_table, get_layer_from_table, 
 from rampa.duckdb.connection import DuckDBPyConnection
 from typing import Dict, Optional, Union, Any, Tuple
 from tqdm import tqdm
+import io
+from datetime import datetime
 
 # Set up logging instead of print statements
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +26,7 @@ logger = logging.getLogger(__name__)
 import urllib3
 # Suppress urllib3 SSL warnings globally
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 
 def to_dict(data, layer_type, url) -> dict:
@@ -121,33 +124,43 @@ def to_dict(data, layer_type, url) -> dict:
 
 class DataManager(Data_Collection):
     """
-    DataManager is a class for managing collections of geospatial data layers, with optional integration to a DuckDB database for persistent storage and retrieval.
-    Inherits from:
-        Data_Collection
+    DataManager is a class for managing collections of geospatial data layers, supporting both in-memory and DuckDB-backed storage.
+    This class extends Data_Collection to provide advanced data management capabilities, including:
+    - Adding, storing, and retrieving geospatial layers from a DuckDB database.
+    - Loading layers into memory as pandas or GeoPandas DataFrames.
+    - Managing metadata and supporting efficient access to large datasets.
+    - Fallback to in-memory operations when no database connection is provided.
     Attributes:
-        db_connection (duckdb.DuckDBPyConnection or None): The database connection used for storing and retrieving layer data.
+        db_connection (duckdb.DuckDBPyConnection or None): The database connection used for persistent storage.
         url_dict (dict): Dictionary mapping layer names to their source URLs.
-        json_file (str): Path to a JSON file containing layer metadata.
+        json_file (str): Optional path to a JSON file with layer definitions.
         layers (dict): Dictionary of loaded ArcGISQuery layer objects.
-        data (dict): Dictionary of in-memory data for layers.
+        data (dict): Dictionary of loaded layer data (DataFrames or GeoDataFrames).
     Methods:
-        __init__(db_connection=None, url_dict: dict=None, json_file: str=None, populate: bool=True)
-            Initializes the DataManager instance, optionally connecting to a DuckDB database and populating layers.
-        add_layer(name: str, url: str, type: str='FeatureLayer', store_in_memory: bool=False)
-            Adds a new data layer from a specified URL, optionally storing its data in memory and/or the database.
-        store_layer_result(name: str, url: str, data: Union[pd.DataFrame, gpd.GeoDataFrame], layer_type: str) -> bool
-            Stores the result of a data layer into the database, logging success or failure.
-        create_collection()
-            Iterates over the url_dict to add all configured layers to the collection.
-        load_layer_from_db(name: str) -> Optional[Union[pd.DataFrame, gpd.GeoDataFrame]]
-            Loads a data layer from the database by name, restoring geospatial and datetime metadata if available.
-        get_layer_data(name: str) -> Optional[Union[pd.DataFrame, gpd.GeoDataFrame]]
-            Retrieves data for a specified layer, either from memory or by loading from the database.
-        ValueError: If a requested layer does not exist or if no database connection is provided when required.
-        - Integrates with ArcGISQuery for fetching remote data.
-        - Supports both pandas and GeoPandas DataFrames.
-        - Uses DuckDB for efficient local storage and retrieval of large datasets.
-        - Provides logging for all major operations.
+        __init__(db_connection=None, url_dict=None, json_file=None, populate=True):
+            Initializes the DataManager, optionally connecting to a DuckDB database and populating layers.
+        add_layer(name, url, type='FeatureLayer', store_in_memory=False):
+            Adds a new layer from a URL, storing it in the database if connected.
+        store_layer_result(name, url, data, layer_type):
+        create_collection():
+            Iterates over url_dict to add all layers to the collection.
+        load_layer_from_db(name):
+            Loads a data layer from the database by name.
+        get_layer_data(name):
+            Retrieves data for a specified layer, loading from the database if necessary.
+        get_layer_info(name):
+        query_layer(*args, **kwargs):
+            Disabled when using a database; use get_layer_data instead.
+        download_data(*args, **kwargs):
+            Disabled when using a database.
+        load_all_layers():
+            Loads all layers into memory from the database.
+        ValueError: If required arguments are missing or invalid operations are attempted.
+        NotImplementedError: If disabled methods are called while using a database.
+    Usage:
+        dm = DataManager(db_connection="mydb.duckdb", url_dict=my_layers)
+        dm.add_layer("roads", "https://example.com/roads")
+        data = dm.get_layer_data("roads")
     """
     
     
@@ -159,8 +172,11 @@ class DataManager(Data_Collection):
             self.db_connection = duckdb.connect(db_connection)
             if populate:
                 self.create_collection()
-    
-    
+            else:
+                layers_info = self.db_connection.execute("SELECT layer_name, source FROM map_layers").fetchall()
+                for layer_name, source in layers_info:
+                    self.layers[layer_name] = ArcGISQuery(source, 'FeatureLayer')
+
     def add_layer(self, name: str, url: str, type: str = 'FeatureLayer', store_in_memory: bool = False):
         """
         Adds a new layer to the current instance, fetching data from the specified URL.
@@ -226,7 +242,7 @@ class DataManager(Data_Collection):
         Returns:
             None
         """
-
+        logger.info("Creating collection of layers from URL dictionary.")
         for name, url in tqdm(self.url_dict.items()):
             self.add_layer(name, url)
             
@@ -301,8 +317,8 @@ class DataManager(Data_Collection):
             return self.data[name]
         else:
             # Try to load from database
-            return self.load_layer_from_db(name)
-        
+            self.data[name] = self.load_layer_from_db(name)
+            return self.data[name]
 
     def get_layer_info(self, name: str) -> Union[Dict[str, Any], str]:
         """
@@ -353,7 +369,26 @@ class DataManager(Data_Collection):
         else:
             return f"Layer {name} not found in database."
         
+    def load_all_layers(self):
+        """
+        Loads data for all layers into the `self.data` dictionary if not already loaded.
+        Iterates over all layers defined in `self.layers`. For each layer, if its name is not present in `self.data`,
+        retrieves the layer data using `get_layer_data(name)`. Requires an active database connection (`self.db_connection`).
+        If no database connection is available, logs a warning message.
+        Returns:
+            None
+        """
+         
+        if self.db_connection:
+            for name, layer in tqdm(self.layers.items()):
+                if name not in self.data:
+                    _ = self.get_layer_data(name)
+        else:
+            logger.warning("This method requires a database connection.")
         
+        
+    ###### Methods to deactivate if using the database connection
+    
     def query_layer(self, *args, **kwargs):
         if self.db_connection is not None:
             raise NotImplementedError("This method is disabled when using a database. Use get_layer_data instead.")
@@ -365,3 +400,5 @@ class DataManager(Data_Collection):
             raise NotImplementedError("This method is disabled when using a database")
         else:
             return super().download_data(*args, **kwargs)
+        
+    

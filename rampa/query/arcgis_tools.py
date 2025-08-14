@@ -208,3 +208,5 @@ class Data_Collection():
             else:
                 layer.query(where="1=1", out_fields='*')
             self.data[name] = layer.query(where="1=1", out_fields='*')
+
+    
