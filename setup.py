@@ -2,14 +2,17 @@ import loguru
 import json
 import pathlib
 import urllib3
+import os
 
 # Suppress urllib3 SSL warnings globally
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from rampa.duckdb.connection import get_duckdb_connection
-from rampa.query.arcgis_tools import Data_Collection, OSMQuery
+from rampa.query.duckdb_tools import DataManager
+from rampa.query.osm_tools import OSMQuery
 
 loguru.logger.add("file_{time}.log")
+project_root = os.path.dirname(os.path.abspath('.'))
 urls_file =  './rampa/data/urls.json'
 
 def setup():
@@ -28,37 +31,19 @@ def setup():
 
     # Initialize ArcGIS data with separate database
     arcgis_db_con = get_duckdb_connection("rampa/duckdb/databases/madrid_layers")
-    loguru.logger.info("Connected to ArcGIS database: rampa/duckdb/databases/madrid_layers.db")
-    data_collection = Data_Collection(
-        url_dict=arcgis_urls,
-        db_connection=arcgis_db_con
+    data_collection = DataManager(
+        json_file=urls_file,
+        populate=True
     )
     
     # Download ArcGIS data and get summary
-    download_summary = data_collection.download_data(store_in_db=True)
-    
-    loguru.logger.info("ArcGis data download process completed.")
-    loguru.logger.info(f"Successfully processed: {download_summary['successful']} layers")
-    loguru.logger.info(f"Failed to process: {download_summary['failed']} layers")
-    
-    if download_summary['failed'] > 0:
-        loguru.logger.warning("Some layers failed to download. Check the output for details.")
+    download_summary = data_collection.download_data()
     
     # Download OSM wheelchair accessibility data
     loguru.logger.info("Starting OSM wheelchair accessibility data download...")
     osm_summary = setup_osm_data()
+    loguru.logger.info(f"OSM wheelchair accessibility data download completed. osm_summary: {osm_summary}")
     
-    # Combined summary
-    total_summary = {
-        'arcgis': download_summary,
-        'osm': osm_summary,
-        'total_successful': download_summary['successful'] + osm_summary['successful'],
-        'total_failed': download_summary['failed'] + osm_summary['failed']
-    }
-    
-    loguru.logger.info(f"Setup completed. Total successful: {total_summary['total_successful']}, Total failed: {total_summary['total_failed']}")
-    
-    return total_summary
 
 def setup_osm_data():
     """
