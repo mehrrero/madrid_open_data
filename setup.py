@@ -30,14 +30,14 @@ def setup():
     db_path.mkdir(parents=True, exist_ok=True)
 
     # Initialize ArcGIS data with separate database
-    arcgis_db_con = get_duckdb_connection("rampa/duckdb/databases/madrid_layers")
     data_collection = DataManager(
         json_file=urls_file,
+        db_connection=db_path / "madrid_layers.db",
         populate=True
     )
-    
-    # Download ArcGIS data and get summary
-    download_summary = data_collection.download_data()
+    loguru.logger.info("Connected to ArcGIS database: rampa/duckdb/databases/madrid_layers.db")
+    loguru.logger.info("Downloading ArcGIS data and getting summary...")
+
     
     # Download OSM wheelchair accessibility data
     loguru.logger.info("Starting OSM wheelchair accessibility data download...")

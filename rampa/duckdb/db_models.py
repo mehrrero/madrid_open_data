@@ -67,7 +67,8 @@ class FactDemographicsAgeGroups(Base):
 
     # Foreign key to the main demographics table
     census_section_id = Column(String, ForeignKey("fact_demographics.census_section_id"), nullable=False)
-    age_group = Column(Text, nullable=False)  # e.g., '00_04_años', '85_89_años'
+    gender = Column(String, nullable=False)  # 'HOMBRE', 'MUJER', 'ALL'
+    age_group = Column(Text, nullable=False)  # e.g., '00_04', '85_89'
     population_count = Column(Integer)
 
 class FactPointsOfInterest(Base):

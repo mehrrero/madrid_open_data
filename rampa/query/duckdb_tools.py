@@ -396,7 +396,7 @@ class DataManager(Data_Collection):
             return super().query_layer(*args, **kwargs)
     
     def download_data(self, *args, **kwargs):
-        if self.db_connection is not None:
+        if self.populate is False:
             raise NotImplementedError("This method is disabled when using a database")
         else:
             return super().download_data(*args, **kwargs)
