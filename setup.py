@@ -29,12 +29,12 @@ def setup():
     db_path = pathlib.Path("rampa/duckdb/databases")
     db_path.mkdir(parents=True, exist_ok=True)
 
-    # Initialize ArcGIS data with separate database
+    '''# Initialize ArcGIS data with separate database
     data_collection = DataManager(
         json_file=urls_file,
         db_connection=db_path / "madrid_layers.db",
         populate=True
-    )
+    )'''
     loguru.logger.info("Connected to ArcGIS database: rampa/duckdb/databases/madrid_layers.db")
     loguru.logger.info("Downloading ArcGIS data and getting summary...")
 
@@ -56,7 +56,7 @@ def setup_osm_data():
     osm_db_path.mkdir(parents=True, exist_ok=True)
     
     # Create separate OSM database
-    osm_db_con = get_duckdb_connection("rampa/duckdb/databases/madrid_osm")
+    osm_db_con = get_duckdb_connection("rampa/duckdb/databases/madrid_osm.db")
     loguru.logger.info("Created OSM database: rampa/duckdb/databases/madrid_osm.db")
     
     # Madrid bounding box
@@ -68,7 +68,8 @@ def setup_osm_data():
         'shops': ['shop'], 
         'transport': ['public_transport', 'highway'],
         'tourism': ['tourism'],
-        'leisure': ['leisure']
+        'leisure': ['leisure'],
+        'routing_infrastructure': ['routing']  # New layer for routing infrastructure
     }
     
     osm_query = OSMQuery(bbox=madrid_bbox, city="Madrid")
@@ -79,21 +80,24 @@ def setup_osm_data():
         try:
             loguru.logger.info(f"Downloading OSM {layer_name} with wheelchair accessibility data...")
             
-            # Query each feature type and combine
-            all_data = {'elements': []}
+            # For POI features, use accessible_pois query type
+            if layer_name in ['amenities', 'shops', 'tourism', 'leisure']:
+                data = osm_query.query(query_type="accessible_pois")
+            elif layer_name == 'transport':
+                data = osm_query.query(query_type="accessible_pois")  # Transport stations are also POIs
+            elif layer_name == 'routing_infrastructure':
+                data = osm_query.query(query_type="accessibility_routing")  # Routing infrastructure
+            else:
+                # For other types, use the new comprehensive query
+                data = osm_query.query(query_type="accessibility_routing")
             
-            for feature_type in feature_types:
-                data = osm_query.query(feature_type=feature_type)
-                if data and 'elements' in data:
-                    all_data['elements'].extend(data['elements'])
-            
-            if all_data['elements']:
+            if data and 'elements' in data:
                 # Store in OSM database
-                success = osm_query.store_in_duckdb(all_data, layer_name, osm_db_con)
+                success = osm_query.store_in_duckdb(data, layer_name, osm_db_con)
                 
                 if success:
                     successful_layers += 1
-                    loguru.logger.info(f"✓ Successfully stored OSM {layer_name}: {len(all_data['elements'])} features")
+                    loguru.logger.info(f"✓ Successfully stored OSM {layer_name}: {len(data['elements'])} features")
                 else:
                     failed_layers.append(f"{layer_name}: Storage failed")
                     loguru.logger.error(f"✗ Failed to store OSM {layer_name}")
