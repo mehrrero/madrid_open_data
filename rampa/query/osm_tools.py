@@ -42,34 +42,156 @@ class OSMQuery():
         self.overpass_url = "http://overpass-api.de/api/interpreter"
         self.type = "OSM"
     
-    def build_query(self, feature_type: str = "amenity") -> str:
+    def build_query(self, query_type: str = "accessibility_routing") -> str:
         """
-        Build Overpass QL query for wheelchair accessibility features.
+        Build Overpass QL query for wheelchair routing and accessibility data.
         
         Args:
-            feature_type: OSM feature type ('amenity', 'shop', 'tourism', etc.)
+            query_type: Type of accessibility query:
+                - "accessibility_routing": Infrastructure for routing (kerbs, crossings, paths)
+                - "accessible_pois": All wheelchair-accessible points of interest
+                - "barriers": Obstacles and barriers that affect accessibility
+                - "complete": All accessibility-related data
             
         Returns:
             Overpass QL query string
         """
         south, west, north, east = self.bbox
         
-        query = f"""
-        [out:json][timeout:180];
-        (
-          nwr["{feature_type}"]["wheelchair"~"yes|no|limited"]({south},{west},{north},{east});
-        );
-        out geom;
-        """
+        if query_type == "accessibility_routing":
+            # Infrastructure critical for wheelchair routing
+            query = f"""
+            [out:json][timeout:300];
+            (
+              // Kerbs and curb cuts - critical for wheelchair routing
+              nwr["barrier"="kerb"]({south},{west},{north},{east});
+              nwr["kerb"]({south},{west},{north},{east});
+              
+              // Crossings and pedestrian infrastructure
+              nwr["highway"="crossing"]({south},{west},{north},{east});
+              nwr["highway"="footway"]({south},{west},{north},{east});
+              nwr["highway"="path"]["foot"!="no"]({south},{west},{north},{east});
+              nwr["highway"="pedestrian"]({south},{west},{north},{east});
+              nwr["highway"="steps"]({south},{west},{north},{east});
+              
+              // Sidewalks and walkways
+              nwr["sidewalk"]({south},{west},{north},{east});
+              nwr["footway"]({south},{west},{north},{east});
+              
+              // Tactile paving and guidance systems
+              nwr["tactile_paving"]({south},{west},{north},{east});
+              
+              // Ramps and accessibility infrastructure
+              nwr["highway"="footway"]["ramp"]({south},{west},{north},{east});
+              nwr["ramp"]({south},{west},{north},{east});
+            );
+            out geom;
+            """
+            
+        elif query_type == "accessible_pois":
+            # All wheelchair-accessible points of interest
+            query = f"""
+            [out:json][timeout:300];
+            (
+              // All amenities with wheelchair accessibility
+              nwr["amenity"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              
+              // Shops with wheelchair accessibility
+              nwr["shop"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              
+              // Tourism and leisure with wheelchair accessibility
+              nwr["tourism"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              nwr["leisure"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              
+              // Healthcare facilities
+              nwr["healthcare"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              
+              // Public transport with accessibility
+              nwr["public_transport"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              nwr["railway"="station"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              nwr["highway"="bus_stop"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              
+              // Government and public services
+              nwr["office"="government"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              nwr["amenity"="townhall"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+              
+              // Educational facilities
+              nwr["amenity"~"school|university|college"]["wheelchair"~"yes|limited"]({south},{west},{north},{east});
+            );
+            out geom;
+            """
+            
+        elif query_type == "barriers":
+            # Barriers and obstacles that affect accessibility
+            query = f"""
+            [out:json][timeout:300];
+            (
+              // Physical barriers
+              nwr["barrier"]({south},{west},{north},{east});
+              
+              // Steps and level changes
+              nwr["highway"="steps"]({south},{west},{north},{east});
+              
+              // Surfaces that may be difficult for wheelchairs
+              nwr["surface"~"grass|gravel|sand|unpaved"]({south},{west},{north},{east});
+              
+              // Narrow passages
+              nwr["width"]({south},{west},{north},{east});
+              
+              // Incline information
+              nwr["incline"]({south},{west},{north},{east});
+              
+              // Obstacles
+              nwr["obstacle"]({south},{west},{north},{east});
+            );
+            out geom;
+            """
+            
+        elif query_type == "complete":
+            # Comprehensive accessibility data
+            query = f"""
+            [out:json][timeout:600];
+            (
+              // ROUTING INFRASTRUCTURE
+              nwr["barrier"="kerb"]({south},{west},{north},{east});
+              nwr["kerb"]({south},{west},{north},{east});
+              nwr["highway"="crossing"]({south},{west},{north},{east});
+              nwr["highway"="footway"]({south},{west},{north},{east});
+              nwr["highway"="path"]["foot"!="no"]({south},{west},{north},{east});
+              nwr["tactile_paving"]({south},{west},{north},{east});
+              nwr["ramp"]({south},{west},{north},{east});
+              
+              // ACCESSIBLE POIS
+              nwr["wheelchair"~"yes|limited|no"]({south},{west},{north},{east});
+              
+              // BARRIERS AND OBSTACLES
+              nwr["barrier"]({south},{west},{north},{east});
+              nwr["highway"="steps"]({south},{west},{north},{east});
+              nwr["incline"]({south},{west},{north},{east});
+              
+              // SURFACE INFORMATION
+              nwr["surface"]({south},{west},{north},{east});
+              nwr["smoothness"]({south},{west},{north},{east});
+            );
+            out geom;
+            """
+        else:
+            # Default to accessibility routing
+            return self.build_query("accessibility_routing")
+            
         return query
     
-    def query(self, feature_type: str = "amenity", custom_query: Optional[str] = None) -> Optional[Dict]:
+    def query(self, query_type: str = "accessibility_routing", custom_query: Optional[str] = None) -> Optional[Dict]:
         """
         Execute OSM query and return raw JSON data.
         
         Args:
-            feature_type: Type of features to query
-            custom_query: Custom Overpass QL query (overrides feature_type)
+            query_type: Type of accessibility query:
+                - "accessibility_routing": Infrastructure for routing (kerbs, crossings, paths)
+                - "accessible_pois": All wheelchair-accessible points of interest
+                - "barriers": Obstacles and barriers that affect accessibility
+                - "complete": All accessibility-related data
+            custom_query: Custom Overpass QL query (overrides query_type)
             
         Returns:
             Raw OSM JSON data or None if failed
@@ -78,10 +200,10 @@ class OSMQuery():
             if custom_query:
                 query = custom_query
             else:
-                query = self.build_query(feature_type)
+                query = self.build_query(query_type)
             
-            logger.info(f"Executing OSM query for {feature_type} wheelchair data...")
-            response = requests.post(self.overpass_url, data=query, timeout=300)
+            logger.info(f"Executing OSM query for {query_type} accessibility data...")
+            response = requests.post(self.overpass_url, data=query, timeout=600)
             
             if response.status_code == 200:
                 data = response.json()
@@ -97,7 +219,7 @@ class OSMQuery():
     
     def store_in_duckdb(self, osm_data: Dict, layer_name: str, db_con: DuckDBPyConnection) -> bool:
         """
-        Store OSM data directly in DuckDB using SQL operations.
+        Store OSM accessibility data directly in DuckDB using SQL operations.
         
         Args:
             osm_data: Raw OSM JSON data
@@ -112,29 +234,55 @@ class OSMQuery():
             return False
         
         try:
-            # Create table for OSM data
+            # Create comprehensive table for accessibility data
             table_name = f"osm_{layer_name}"
+            
+            # Drop table if it exists to recreate with correct schema
+            db_con.execute(f"DROP TABLE IF EXISTS {table_name}")
+            
             db_con.execute(f"""
-                CREATE TABLE IF NOT EXISTS {table_name} (
+                CREATE TABLE {table_name} (
                     osm_id BIGINT,
                     osm_type VARCHAR,
+                    
+                    -- Wheelchair accessibility
                     wheelchair VARCHAR,
+                    wheelchair_score INTEGER,
+                    
+                    -- Feature types
                     amenity VARCHAR,
                     shop VARCHAR,
                     tourism VARCHAR,
+                    leisure VARCHAR,
+                    highway VARCHAR,
+                    barrier VARCHAR,
+                    
+                    -- Routing infrastructure
+                    kerb VARCHAR,
+                    crossing VARCHAR,
+                    tactile_paving VARCHAR,
+                    ramp VARCHAR,
+                    surface VARCHAR,
+                    smoothness VARCHAR,
+                    incline VARCHAR,
+                    width FLOAT,
+                    
+                    -- Basic info
                     name VARCHAR,
                     lat DOUBLE,
                     lon DOUBLE,
                     geometry VARCHAR,
-                    wheelchair_score INTEGER,
+                    
+                    -- Metadata
+                    data_type VARCHAR,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             
             # Clear existing data for this layer
-            db_con.execute(f"DELETE FROM {table_name}")
+            # db_con.execute(f"DELETE FROM {table_name}")
             
-            # Process and insert data in batches for efficiency
+            # Process and insert data in batches
             batch_size = 1000
             elements = osm_data['elements']
             
@@ -147,11 +295,32 @@ class OSMQuery():
                     osm_type = element.get('type')
                     tags = element.get('tags', {})
                     
-                    # Extract relevant tags
+                    # Extract accessibility and routing tags
                     wheelchair = tags.get('wheelchair', 'unknown')
+                    kerb = tags.get('kerb', tags.get('barrier') if tags.get('barrier') == 'kerb' else '')
+                    crossing = tags.get('crossing', '')
+                    tactile_paving = tags.get('tactile_paving', '')
+                    ramp = tags.get('ramp', '')
+                    surface = tags.get('surface', '')
+                    smoothness = tags.get('smoothness', '')
+                    incline = tags.get('incline', '')
+                    
+                    # Width handling
+                    width_str = tags.get('width', '')
+                    try:
+                        width = float(width_str.replace('m', '').strip()) if width_str else None
+                    except:
+                        width = None
+                    
+                    # Feature types
                     amenity = tags.get('amenity', '')
                     shop = tags.get('shop', '')
                     tourism = tags.get('tourism', '')
+                    leisure = tags.get('leisure', '')
+                    highway = tags.get('highway', '')
+                    barrier = tags.get('barrier', '')
+                    
+                    # Basic info
                     name = tags.get('name', '')
                     
                     # Score wheelchair accessibility
@@ -162,6 +331,16 @@ class OSMQuery():
                         'unknown': 0
                     }.get(wheelchair, 0)
                     
+                    # Determine data type for categorization
+                    if kerb or crossing or highway in ['crossing', 'footway', 'path']:
+                        data_type = 'routing_infrastructure'
+                    elif wheelchair in ['yes', 'limited']:
+                        data_type = 'accessible_poi'
+                    elif barrier or highway == 'steps':
+                        data_type = 'barrier'
+                    else:
+                        data_type = 'other'
+                    
                     # Handle geometry
                     if osm_type == 'node':
                         lat = element.get('lat')
@@ -169,24 +348,41 @@ class OSMQuery():
                         geometry = f"POINT({lon} {lat})" if lat and lon else None
                     else:
                         lat = lon = None
-                        geometry = None  # Simplified for now
+                        geometry = None  # Could be enhanced to handle ways/relations
                     
-                    values.append([osm_id, osm_type, wheelchair, amenity, shop, tourism, 
-                                 name, lat, lon, geometry, wheelchair_score])
+                    values.append([
+                        osm_id, osm_type, wheelchair, wheelchair_score,
+                        amenity, shop, tourism, leisure, highway, barrier,
+                        kerb, crossing, tactile_paving, ramp, surface, smoothness, incline, width,
+                        name, lat, lon, geometry, data_type
+                    ])
                 
                 # Batch insert
                 if values:
-                    placeholders = ",".join(["(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"] * len(values))
+                    placeholders = ",".join(["(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"] * len(values))
                     flattened_values = [item for sublist in values for item in sublist]
                     
                     db_con.execute(f"""
                         INSERT INTO {table_name} 
-                        (osm_id, osm_type, wheelchair, amenity, shop, tourism, 
-                         name, lat, lon, geometry, wheelchair_score)
+                        (osm_id, osm_type, wheelchair, wheelchair_score,
+                         amenity, shop, tourism, leisure, highway, barrier,
+                         kerb, crossing, tactile_paving, ramp, surface, smoothness, incline, width,
+                         name, lat, lon, geometry, data_type)
                         VALUES {placeholders}
                     """, flattened_values)
             
-            logger.info(f"Stored {len(elements)} OSM features in DuckDB table {table_name}")
+            # Log summary by data type
+            summary = db_con.execute(f"""
+                SELECT data_type, COUNT(*) as count 
+                FROM {table_name} 
+                GROUP BY data_type 
+                ORDER BY count DESC
+            """).fetchall()
+            
+            logger.info(f"Stored {len(elements)} OSM features in DuckDB table {table_name}:")
+            for data_type, count in summary:
+                logger.info(f"  {data_type}: {count} features")
+            
             return True
             
         except Exception as e:
@@ -239,83 +435,4 @@ class OSMQuery():
         }
         
         return layer_data
-
-    def add_osm_layer(self, 
-                     name: str, 
-                     bbox: Optional[Tuple[float, float, float, float]] = None,
-                     city: str = "Madrid") -> bool:
-        """
-        Add an OSM wheelchair accessibility layer to the collection.
-        
-        Args:
-            name: Layer name for storage
-            bbox: Bounding box (south, west, north, east)
-            city: City name
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        if name in self.layers:
-            logger.warning(f"Layer {name} already exists. Use a different name.")
-            return False
-        
-        try:
-            # Create OSM query instance
-            osm_query = OSMQuery(bbox=bbox, city=city)
-            self.layers[name] = osm_query
-            logger.info(f"Added OSM layer: {name}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to add OSM layer {name}: {e}")
-            return False
-    
-    def query_osm_layer(self, 
-                       name: str, 
-                       feature_type: str = "amenity",
-                       custom_query: Optional[str] = None,
-                       store_in_db: bool = True) -> Optional[Dict]:
-        """
-        Query an OSM layer and optionally store in DuckDB.
-        
-        Args:
-            name: OSM layer name
-            feature_type: Type of features to query
-            custom_query: Custom Overpass QL query
-            store_in_db: Whether to store results in database
-            
-        Returns:
-            Raw OSM data dictionary or None
-        """
-        if name not in self.layers:
-            raise ValueError(f"OSM layer {name} does not exist. Add it first with add_osm_layer().")
-        
-        layer = self.layers[name]
-        if not isinstance(layer, OSMQuery):
-            raise ValueError(f"Layer {name} is not an OSM layer.")
-        
-        # Query from OSM
-        osm_data = layer.query(feature_type=feature_type, custom_query=custom_query)
-        
-        # Store in DuckDB if requested and we got data
-        if self.db_connection and store_in_db and osm_data:
-            success = layer.store_in_duckdb(osm_data, name, self.db_connection)
-            if success:
-                # Also store in the map_layers table for consistency
-                layer_dict = layer.to_dict(osm_data, name)
-                source = f"OSM_{feature_type}_{layer.city}"
-                write_layer_to_table(self.db_connection, name, source, layer_dict)
-                
-                # Store metadata
-                if not self.store_in_memory:
-                    self.data[name] = {
-                        'stored_in_db': True,
-                        'table_name': f'osm_{name}',
-                        'record_count': len(osm_data.get('elements', [])),
-                        'last_updated': datetime.now().isoformat(),
-                        'data_type': 'OSM',
-                        'feature_type': feature_type
-                    }
-        
-        return osm_data
     
