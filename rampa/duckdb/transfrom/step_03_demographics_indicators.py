@@ -45,7 +45,7 @@ DEMOGRAPHIC_INDICATORS = {
 }
 
 def create_fact_demographics_table(target_conn):
-    """Create the fact_demographics table with proper schema."""
+    """Create the fact_demographics table with proper schema (no geometry - that's in dim_geography)."""
     logger.info("Creating fact_demographics table...")
     
     target_conn.execute("DROP TABLE IF EXISTS fact_demographics")
@@ -63,7 +63,8 @@ def create_fact_demographics_table(target_conn):
             indice_dependencia DOUBLE,
             indice_estructura_poblacion_act DOUBLE,
             indice_reemplazo_poblacion_acti DOUBLE,
-            razon_progresividad_demografica DOUBLE
+            razon_progresividad_demografica DOUBLE,
+            FOREIGN KEY (census_section_id) REFERENCES dim_geography(census_section_id)
         )
     """)
     logger.info("✅ fact_demographics table created")
