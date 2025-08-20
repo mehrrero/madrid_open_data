@@ -19,8 +19,8 @@ from rampa.duckdb.connection import get_duckdb_connection
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {message}")
 
-SOURCE_OSM_DB = 'rampa/duckdb/databases/madrid_osm.db'
-TARGET_DB = 'rampa/duckdb/databases/rampa.db'
+SOURCE_OSM_DB = 'rampa/duckdb/databases/madrid_osm'
+TARGET_DB = 'rampa/duckdb/databases/rampa'
 
 def format_geometry_for_web(lat, lon, geometry_wkt=None):
     """

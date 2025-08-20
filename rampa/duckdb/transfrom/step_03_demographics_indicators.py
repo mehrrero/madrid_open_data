@@ -26,8 +26,8 @@ from rampa.duckdb.operations import get_all_layers
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {message}")
 
-SOURCE_DATABASE_PATH = 'rampa/duckdb/databases/madrid_layers.db'  # Source data
-TARGET_DATABASE_PATH = 'rampa/duckdb/databases/rampa.db'          # Target for normalized data
+SOURCE_DATABASE_PATH = 'rampa/duckdb/databases/madrid_layers'  # Source data
+TARGET_DATABASE_PATH = 'rampa/duckdb/databases/rampa'    # Target for normalized data
 
 # Define the expected demographic indicator layers and their mappings
 DEMOGRAPHIC_INDICATORS = {
