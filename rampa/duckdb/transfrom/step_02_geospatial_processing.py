@@ -109,7 +109,7 @@ def main():
             return
         
         # Connect to target database
-        target_conn = duckdb.connect(TARGET_DATABASE_PATH)
+        target_conn = duckdb.connect(f"{TARGET_DATABASE_PATH}.db")
         
         # Create dim_geography table if it doesn't exist
         target_conn.execute("""
@@ -122,9 +122,15 @@ def main():
             )
         """)
         
-        # Clear existing data
-        target_conn.execute("DELETE FROM dim_geography")
-        logger.info("Cleared existing dim_geography data")
+        # Check if table already has data
+        existing_count = target_conn.execute("SELECT COUNT(*) FROM dim_geography").fetchone()[0]
+        
+        if existing_count > 0:
+            logger.info(f"dim_geography table already contains {existing_count} records")
+            logger.info("✅ Geospatial processing skipped - table already populated!")
+            return True
+        
+        logger.info("dim_geography table is empty, proceeding with population")
         
         # Process census sections
         logger.info(f"Processing {len(census_sections)} census sections...")
@@ -204,10 +210,13 @@ def main():
         logger.info("Top districts:")
         for name, count in districts:
             logger.info(f"  {name}: {count} sections")
+        
+        logger.info("✅ Geospatial processing completed!")
+        return True
             
     except Exception as e:
         logger.error(f"❌ Error: {e}")
-        raise
+        return False
     finally:
         if target_conn:
             target_conn.close()

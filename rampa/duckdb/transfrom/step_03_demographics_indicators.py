@@ -137,6 +137,27 @@ def populate_demographics_table(target_conn, all_indicator_data):
     
     logger.info(f"Found {len(all_sections)} unique census sections")
     
+    # Get valid census section IDs from dim_geography table
+    try:
+        valid_sections = set()
+        valid_sections_result = target_conn.execute("SELECT census_section_id FROM dim_geography").fetchall()
+        valid_sections = {row[0] for row in valid_sections_result}
+        logger.info(f"Found {len(valid_sections)} valid census sections in dim_geography")
+        
+        # Filter out invalid sections
+        filtered_sections = {section_id for section_id in all_sections if section_id in valid_sections}
+        invalid_count = len(all_sections) - len(filtered_sections)
+        
+        if invalid_count > 0:
+            logger.warning(f"Filtered out {invalid_count} invalid census section IDs")
+        
+        all_sections = filtered_sections
+        
+    except Exception as e:
+        logger.warning(f"Could not validate census sections: {e}")
+    
+    logger.info(f"Processing {len(all_sections)} validated unique census sections")
+    
     # Create a dictionary to hold all data for each section
     section_data = {}
     for section_id in all_sections:
@@ -262,8 +283,8 @@ def main():
     
     try:
         # Connect to databases
-        source_conn = duckdb.connect(SOURCE_DATABASE_PATH)
-        target_conn = duckdb.connect(TARGET_DATABASE_PATH)
+        source_conn = duckdb.connect(f"{SOURCE_DATABASE_PATH}.db")
+        target_conn = duckdb.connect(f"{TARGET_DATABASE_PATH}.db")
         
         # Get all layers from source
         all_layers = get_all_layers(source_conn)
@@ -295,10 +316,11 @@ def main():
         generate_summary(target_conn)
         
         logger.info("✅ Demographic indicators processing completed!")
+        return True
         
     except Exception as e:
         logger.error(f"❌ Error: {e}")
-        raise
+        return False
     finally:
         if source_conn:
             source_conn.close()
