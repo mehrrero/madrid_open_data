@@ -7,11 +7,16 @@ version = "1.0.0"
 base_dir = "rampa/duckdb/databases"
 creation_order = [
     "arcgis",
+<<<<<<< HEAD
+=======
+    "osm",
+>>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
     "final",
 ]
 
 [database.names]
 arcgis = "madrid_layers"
+<<<<<<< HEAD
 final = "rampa"
 test = "test"
 
@@ -22,10 +27,78 @@ populate = true
 
 [transform]
 transform_dir = "rampa/duckdb/transfrom"
+=======
+osm = "madrid_osm"
+final = "rampa"
+test = "test"
+
+[osm]
+madrid_bbox = [
+    40.3119,
+    -3.8633,
+    40.564,
+    -3.5179,
+]
+overpass_url = "http://overpass-api.de/api/interpreter"
+timeout = 600
+
+[osm.layers.amenities]
+feature_types = [
+    "amenity",
+]
+query_type = "accessible_pois"
+
+[osm.layers.shops]
+feature_types = [
+    "shop",
+]
+query_type = "accessible_pois"
+
+[osm.layers.transport]
+feature_types = [
+    "public_transport",
+    "highway",
+]
+query_type = "accessible_pois"
+
+[osm.layers.tourism]
+feature_types = [
+    "tourism",
+]
+query_type = "accessible_pois"
+
+[osm.layers.leisure]
+feature_types = [
+    "leisure",
+]
+query_type = "accessible_pois"
+
+[osm.layers.routing_infrastructure]
+feature_types = [
+    "routing",
+]
+query_type = "accessibility_routing"
+
+[osm.special_collections.pedestrian_widths]
+enabled = true
+description = "Pedestrian area width data for accessibility routing"
+
+[arcgis]
+urls_file = "/Users/admin/Desktop/personal_projects/Madrid Open Data/madrid-open-data/rampa/data/urls.json"
+enabled = true
+populate = true
+
+[transform]
+transform_dir = "/Users/admin/Desktop/personal_projects/Madrid Open Data/madrid-open-data/rampa/duckdb/transfrom"
+>>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
 script_pattern = "step_*.py"
 execution_order = "filename"
 expected_scripts = [
     "step_01_clean_and_standardize.py",
+<<<<<<< HEAD
+=======
+    "step_02_geography_dimension.py",
+>>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
     "step_02_geospatial_processing.py",
     "step_03_demographics_indicators.py",
     "step_03_demographics_normalization.py",
