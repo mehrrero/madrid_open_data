@@ -24,10 +24,10 @@ def main():
     target_conn = None
     try:
         # Connect to source database (madrid_layers.db) to read data
-        source_conn = duckdb.connect(SOURCE_DATABASE_PATH)
+        source_conn = duckdb.connect(f"{SOURCE_DATABASE_PATH}.db")
         
         # Connect to target database (rampa.db) to insert normalized data
-        target_conn = duckdb.connect(TARGET_DATABASE_PATH)
+        target_conn = duckdb.connect(f"{TARGET_DATABASE_PATH}.db")
         
         # Get unique demographic layers from source
         all_layers = get_all_layers(source_conn)
@@ -175,10 +175,12 @@ def main():
         logger.info(f"✅ Completed! {total:,} total records in rampa.db:")
         for gender, records, population in summary:
             logger.info(f"  {gender}: {records:,} records, {population:,} population")
+        
+        return True
             
     except Exception as e:
         logger.error(f"❌ Error: {e}")
-        raise
+        return False
     finally:
         if source_conn:
             source_conn.close()

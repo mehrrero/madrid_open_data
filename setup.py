@@ -7,89 +7,116 @@ import os
 # Suppress urllib3 SSL warnings globally
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+from rampa.config import config, get_db_path, get_madrid_bbox, get_osm_layers
 from rampa.duckdb.connection import get_duckdb_connection
 from rampa.query.duckdb_tools import DataManager
 from rampa.query.osm_tools import OSMQuery
+from rampa.duckdb.src.run_transformations import run_transform_pipeline
 
 loguru.logger.add("file_{time}.log")
-project_root = os.path.dirname(os.path.abspath('.'))
-urls_file =  './rampa/data/urls.json'
 
 def setup():
     loguru.logger.info("Setting up the application...")
-    loguru.logger.info("Downloading ArcGis data...")
-
-    with open(urls_file, 'r') as f:
-        arcgis_urls = json.load(f)
-
-    loguru.logger.info(f"Found {len(arcgis_urls)} URLs to process")
-    loguru.logger.info(f"Available layer names: {list(arcgis_urls.keys())}")
-
-    # Ensure database directory exists
-    db_path = pathlib.Path("rampa/duckdb/databases")
-    db_path.mkdir(parents=True, exist_ok=True)
-
-    '''# Initialize ArcGIS data with separate database
-    data_collection = DataManager(
-        json_file=urls_file,
-        db_connection=db_path / "madrid_layers.db",
-        populate=True
-    )'''
-    loguru.logger.info("Connected to ArcGIS database: rampa/duckdb/databases/madrid_layers.db")
-    loguru.logger.info("Downloading ArcGIS data and getting summary...")
-
+    
+    # Ensure all directories exist
+    config.ensure_directories()
+    
+    # Setup ArcGIS data (currently disabled)
+    loguru.logger.info(config.arcgis_config["enabled"])
+    if config.arcgis_config["enabled"]:
+        
+        loguru.logger.info("Downloading ArcGis data...")
+        arcgis_summary = setup_arcgis_data()
+        loguru.logger.info(f"ArcGIS data download completed. Summary: {arcgis_summary}")
+    else:
+        loguru.logger.info("ArcGIS data collection is disabled in configuration")
+        arcgis_summary = {'successful': 0, 'failed': 0, 'failed_details': []}
     
     # Download OSM wheelchair accessibility data
     loguru.logger.info("Starting OSM wheelchair accessibility data download...")
     osm_summary = setup_osm_data()
     loguru.logger.info(f"OSM wheelchair accessibility data download completed. osm_summary: {osm_summary}")
     
+    # Run transformation pipeline
+    loguru.logger.info("Starting data transformation pipeline...")
+    transform_summary = run_transform_pipeline()
+    loguru.logger.info(f"Data transformation completed. transform_summary: {transform_summary}")
+    
+    # Final setup summary
+    loguru.logger.info("=== SETUP COMPLETE ===")
+    loguru.logger.info(f"ArcGIS layers: {arcgis_summary['successful']} successful, {arcgis_summary['failed']} failed")
+    loguru.logger.info(f"OSM data: {osm_summary['successful']} successful, {osm_summary['failed']} failed")
+    loguru.logger.info(f"Transformations: {transform_summary['successful']}/{transform_summary['total_scripts']} successful")
+    
+    total_failed = arcgis_summary['failed'] + osm_summary['failed'] + transform_summary['failed']
+    if total_failed == 0:
+        loguru.logger.info("🎉 All setup steps completed successfully!")
+    else:
+        loguru.logger.warning(f"⚠️  Setup completed with {total_failed} total issues - check logs above")
+
+
+def setup_arcgis_data():
+    """Setup ArcGIS data collection using centralized configuration."""
+    loguru.logger.info("Setting up ArcGIS data...")
+    
+    try:
+        # Get configuration
+        urls_file = config.arcgis_config["urls_file"]
+        db_path = get_db_path("arcgis")
+        
+        with open(urls_file, 'r') as f:
+            arcgis_urls = json.load(f)
+
+        loguru.logger.info(f"Found {len(arcgis_urls)} URLs to process")
+        loguru.logger.info(f"Available layer names: {list(arcgis_urls.keys())}")
+
+        # Initialize ArcGIS data collection
+        data_collection = DataManager(
+            json_file=urls_file,
+            db_connection=db_path,
+            populate=config.arcgis_config["populate"]
+        )
+        loguru.logger.info(f"Connected to ArcGIS database: {db_path}.db")
+        loguru.logger.info("ArcGIS data collection completed")
+        
+        return {
+            'successful': 1,
+            'failed': 0,
+            'failed_details': []
+        }
+        
+    except Exception as e:
+        loguru.logger.error(f"Error setting up ArcGIS data: {e}")
+        return {
+            'successful': 0,
+            'failed': 1,
+            'failed_details': [str(e)]
+        }
+    
 
 def setup_osm_data():
-    """
-    Setup OSM wheelchair accessibility data in separate database
-    """
+    """Setup OSM wheelchair accessibility data using centralized configuration."""
     loguru.logger.info("Setting up OSM wheelchair accessibility data...")
     
-    # Ensure database directory exists
-    osm_db_path = pathlib.Path("rampa/duckdb/databases")
-    osm_db_path.mkdir(parents=True, exist_ok=True)
-    
-    # Create separate OSM database
-    osm_db_con = get_duckdb_connection("rampa/duckdb/databases/madrid_osm")
-    loguru.logger.info("Created OSM database: rampa/duckdb/databases/madrid_osm")
+    # Get OSM database connection using config
+    osm_db_con = get_duckdb_connection(get_db_path("osm"))
+    loguru.logger.info(f"Created OSM database: {get_db_path('osm')}.db")
 
-    # Madrid bounding box
-    madrid_bbox = (40.3119, -3.8633, 40.5640, -3.5179)
-    
-    # Define OSM layers to collect
-    osm_layers = {
-        'amenities': ['amenity'],
-        'shops': ['shop'], 
-        'transport': ['public_transport', 'highway'],
-        'tourism': ['tourism'],
-        'leisure': ['leisure'],
-        'routing_infrastructure': ['routing']  # New layer for routing infrastructure
-    }
+    # Get configuration
+    madrid_bbox = get_madrid_bbox()
+    osm_layers = get_osm_layers()
     
     osm_query = OSMQuery(bbox=madrid_bbox, city="Madrid")
     successful_layers = 0
     failed_layers = []
     
-    for layer_name, feature_types in osm_layers.items():
+    for layer_name, layer_config in osm_layers.items():
         try:
             loguru.logger.info(f"Downloading OSM {layer_name} with wheelchair accessibility data...")
             
-            # For POI features, use accessible_pois query type
-            if layer_name in ['amenities', 'shops', 'tourism', 'leisure']:
-                data = osm_query.query(query_type="accessible_pois")
-            elif layer_name == 'transport':
-                data = osm_query.query(query_type="accessible_pois")  # Transport stations are also POIs
-            elif layer_name == 'routing_infrastructure':
-                data = osm_query.query(query_type="accessibility_routing")  # Routing infrastructure
-            else:
-                # For other types, use the new comprehensive query
-                data = osm_query.query(query_type="accessibility_routing")
+            # Use the query type from configuration
+            query_type = layer_config.get('query_type', 'accessible_pois')
+            data = osm_query.query(query_type=query_type)
             
             if data and 'elements' in data:
                 # Store in OSM database
@@ -108,6 +135,20 @@ def setup_osm_data():
         except Exception as e:
             failed_layers.append(f"{layer_name}: {str(e)}")
             loguru.logger.error(f"✗ Error processing OSM {layer_name}: {e}")
+    
+    # Download pedestrian width data if enabled
+    if config.osm_config["special_collections"]["pedestrian_widths"]["enabled"]:
+        loguru.logger.info("Downloading pedestrian width data for accessibility analysis...")
+        try:
+            width_analysis = osm_query.get_madrid_pedestrian_widths(osm_db_con)
+            if width_analysis:
+                loguru.logger.info("✓ Successfully collected pedestrian width data")
+            else:
+                failed_layers.append("pedestrian_widths: Collection failed")
+                loguru.logger.warning("⚠ Failed to collect pedestrian width data")
+        except Exception as e:
+            failed_layers.append(f"pedestrian_widths: {str(e)}")
+            loguru.logger.error(f"✗ Error collecting pedestrian width data: {e}")
     
     # Log OSM summary
     loguru.logger.info(f"OSM download completed. Successful: {successful_layers}, Failed: {len(failed_layers)}")
@@ -141,5 +182,13 @@ def setup_osm_data():
     }
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the rampa-setup script."""
     setup()
+
+
+if __name__ == "__main__":
+    main()
+
+if __name__ == "__main__":
+    main()
