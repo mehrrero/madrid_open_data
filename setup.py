@@ -56,9 +56,9 @@ def setup_osm_data():
     osm_db_path.mkdir(parents=True, exist_ok=True)
     
     # Create separate OSM database
-    osm_db_con = get_duckdb_connection("rampa/duckdb/databases/madrid_osm.db")
-    loguru.logger.info("Created OSM database: rampa/duckdb/databases/madrid_osm.db")
-    
+    osm_db_con = get_duckdb_connection("rampa/duckdb/databases/madrid_osm")
+    loguru.logger.info("Created OSM database: rampa/duckdb/databases/madrid_osm")
+
     # Madrid bounding box
     madrid_bbox = (40.3119, -3.8633, 40.5640, -3.5179)
     

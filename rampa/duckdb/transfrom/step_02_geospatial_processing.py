@@ -15,7 +15,7 @@ from loguru import logger
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {message}")
 
-TARGET_DATABASE_PATH = 'rampa/duckdb/databases/rampa.db'
+TARGET_DATABASE_PATH = 'rampa/duckdb/databases/rampa'
 CENSUS_SECTIONS_JSON = 'rampa/data/Secciones_Censales.json'
 
 def load_census_sections_from_topojson():

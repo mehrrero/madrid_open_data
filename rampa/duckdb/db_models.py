@@ -16,6 +16,8 @@ Base = declarative_base()
 poi_id_seq = Sequence("fact_points_of_interest_id_seq")
 node_id_seq = Sequence("nodes_id_seq")
 edge_id_seq = Sequence("edges_id_seq")
+routing_infra_id_seq = Sequence("routing_infrastructure_id_seq")
+
 
 class DimGeography(Base):
     """
@@ -94,6 +96,58 @@ class FactPointsOfInterest(Base):
     geom = Column(Text)
 
 # --- Tables for the Routing Service ---
+class RoutingInfrastructure(Base):
+    """
+    Detailed routing infrastructure data from OSM for accessibility routing.
+    Contains information about kerbs, crossings, barriers, and path conditions.
+    """
+    __tablename__ = "routing_infrastructure"
+
+    infra_id = Column(
+        Integer,
+        routing_infra_id_seq,
+        server_default=routing_infra_id_seq.next_value(),
+        primary_key=True,
+        nullable=False,
+    )
+    
+    # OSM identification
+    osm_id = Column(String, nullable=False)
+    osm_type = Column(String)  # 'node', 'way', 'relation'
+    
+    # Basic accessibility
+    wheelchair = Column(String)  # 'yes', 'no', 'limited'
+    wheelchair_score = Column(Integer)  # Computed accessibility score
+    
+    # Infrastructure type classification
+    highway = Column(String)  # footway, crossing, path, steps, etc.
+    barrier = Column(String)  # kerb, bollard, gate, etc.
+    
+    # Detailed routing attributes
+    kerb = Column(String)  # lowered, raised, flush, etc.
+    crossing = Column(String)  # traffic_signals, uncontrolled, unmarked, etc.
+    tactile_paving = Column(String)  # yes, no, incorrect, etc.
+    ramp = Column(String)  # yes, no, portable, etc.
+    
+    # Surface and condition information
+    surface = Column(String)  # paved, unpaved, asphalt, concrete, etc.
+    smoothness = Column(String)  # excellent, good, intermediate, bad, etc.
+    incline = Column(String)  # slope percentage or descriptive
+    width = Column(Float)  # path/sidewalk width in meters
+    
+    # Basic information
+    name = Column(Text)
+    
+    # Spatial data
+    lat = Column(Float, nullable=False)
+    lon = Column(Float, nullable=False)
+    geom = Column(Text)  # Full geometry as WKT
+    
+    # Data classification
+    data_type = Column(String)  # routing_infrastructure, barrier, accessible_poi, etc.
+    
+    # Metadata
+    created_at = Column(String)  # Using String for DuckDB compatibility
 
 class Nodes(Base):
     """
