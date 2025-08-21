@@ -312,7 +312,7 @@ class Network:
         ed = [self.edges[(self.edges['from'] == p[0]) & (self.edges['to'] == p[1])] for p in pairs]
         ed = pd.concat(ed)
         ed['geometry'] = ed.apply(lambda row: self.get_linestring(row), axis=1)
-        ed = gpd.GeoDataFrame(ed, geometry='geometry')
+        ed = gpd.GeoDataFrame(ed, geometry='geometry', crs='EPSG:4326')
 
         return ed
 
