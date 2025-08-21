@@ -16,6 +16,8 @@ from shapely import LineString
 import numpy as np
 import requests
 from pyproj import Transformer
+import json
+from shapely.geometry import LineString, mapping
 
 class Network:
     """
@@ -371,3 +373,68 @@ class GeoCoder:
         return address_results + poi_results
 
 geocoder = GeoCoder()
+
+
+
+
+def ruta_to_json(ruta):
+    # Collect all coordinates from the route
+    coords = []
+    for geom in ruta.geometry:
+        coords.extend(list(geom.coords))
+    # Remove consecutive duplicate coordinates
+    unique_coords = [coords[0]]
+    for c in coords[1:]:
+        if c != unique_coords[-1]:
+            unique_coords.append(c)
+    # Build the main geometry
+    geometry = {
+        "coordinates": [[round(x, 6), round(y, 6)] for x, y in unique_coords],
+        "type": "LineString"
+    }
+    total_distance = float(ruta['distance'].sum())
+    # For this example, assume duration = distance / 1.3 (walking speed ~1.3 m/s)
+    total_duration = total_distance / 1.3
+    # Build legs and steps (one leg, one step per segment)
+    steps = []
+    for idx, row in ruta.iterrows():
+        step_geom = mapping(row['geometry'])
+        step = {
+            "distance": float(row['distance']),
+            "duration": float(row['distance']) / 1.3,
+            "geometry": step_geom,
+            "maneuver": {
+                "instruction": "Continue",
+                "type": "waypoint",
+                "bearing_after": None,
+                "location": [round(row['geometry'].coords[0][0], 6), round(row['geometry'].coords[0][1], 6)]
+            },
+            "name": ""
+        }
+        steps.append(step)
+    leg = {
+        "distance": total_distance,
+        "duration": total_duration,
+        "steps": steps
+    }
+    route = {
+        "geometry": geometry,
+        "duration": total_duration,
+        "distance": total_distance,
+        "weight": total_duration,
+        "weight_name": "routability",
+        "legs": [leg]
+    }
+    # Waypoints: start point only, name left blank
+    waypoint = {
+        "distance": 0,
+        "name": "",
+        "location": [round(unique_coords[0][0], 6), round(unique_coords[0][1], 6)]
+    }
+    output = {
+        "routes": [route],
+        "waypoints": [waypoint],
+        "code": "Ok"
+    }
+    return output
+

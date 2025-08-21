@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from rampa.routing.route import Network, geocoder
+from rampa.routing.route import Network, geocoder, ruta_to_json
 
 
 app = FastAPI()
@@ -26,9 +26,9 @@ async def create_route(x1: float, y1: float, x2: float, y2: float):
     ruta_alt = network.route_gdf(coord1, coord2, alternate=True)
     
     # Convert GeoDataFrames to GeoJSON-like dicts
-    ruta_json = ruta.to_json()
-    ruta_alt_json = ruta_alt.to_json()
-    
+    ruta_json = ruta_to_json(ruta)
+    ruta_alt_json = ruta_to_json(ruta_alt)
+
     return {
         "ruta": ruta_json,
         "ruta_alt": ruta_alt_json
