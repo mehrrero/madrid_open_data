@@ -24,10 +24,10 @@ def setup():
     net = Network(madrid, db='rampa/data/grafo.db', db_alt='rampa/data/grafo_alt.db', aceras=aceras, row='Ancho_medio', store=True)
 
     logger.info("Loading POI data")
-    with open('/Users/mherrero/Documents/madrid_open_data/rampa/data/urls_API.json', 'r') as f:
+    with open('rampa/data/urls_API.json', 'r') as f:
         urls_dict = json.load(f)
 
-    pois = POIManager(urls_dict, db='/Users/mherrero/Documents/madrid_open_data/rampa/data/pois.db', store=True)
+    pois = POIManager(urls_dict, db='rampa/data/pois.db', store=True)
 
     logger.info("Everything stored in DB successfully")
 if __name__ == "__main__":
