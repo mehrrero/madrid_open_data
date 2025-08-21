@@ -1,0 +1,44 @@
+[project]
+name = "Madrid Open Data"
+description = "Accessibility data analysis for Madrid"
+version = "1.0.0"
+
+[database]
+base_dir = "rampa/duckdb/databases"
+creation_order = [
+    "arcgis",
+    "final",
+]
+
+[database.names]
+arcgis = "madrid_layers"
+final = "rampa"
+test = "test"
+
+[arcgis]
+urls_file = "rampa/data/urls.json"
+enabled = false
+populate = true
+
+[transform]
+transform_dir = "rampa/duckdb/transfrom"
+script_pattern = "step_*.py"
+execution_order = "filename"
+expected_scripts = [
+    "step_01_clean_and_standardize.py",
+    "step_02_geospatial_processing.py",
+    "step_03_demographics_indicators.py",
+    "step_03_demographics_normalization.py",
+    "step_05_poi_unification.py",
+]
+
+[logging]
+level = "INFO"
+format = "{time:HH:mm:ss} | {level} | {message}"
+file_pattern = "file_{time}.log"
+
+[paths]
+data_dir = "rampa/data"
+notebooks_dir = "notebooks"
+reports_dir = "reports"
+models_dir = "models"
