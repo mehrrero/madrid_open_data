@@ -12,6 +12,7 @@ from loguru import logger
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 from rampa.config import config, get_db_path
 <<<<<<< HEAD
 =======
@@ -75,9 +76,11 @@ def setup_arcgis():
     
 =======
 from rampa.config import config, get_db_path, get_madrid_bbox, get_osm_layers
+=======
+from rampa.config import config, get_db_path
+>>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
 from rampa.duckdb.connection import get_duckdb_connection
 from rampa.query.duckdb_tools import DataManager
-from rampa.query.osm_tools import OSMQuery
 from rampa.duckdb.src.run_transformations import run_transform_pipeline
 
 loguru.logger.add("file_{time}.log")
@@ -88,21 +91,14 @@ def setup():
     # Ensure all directories exist
     config.ensure_directories()
     
-    # Setup ArcGIS data (currently disabled)
-    loguru.logger.info(config.arcgis_config["enabled"])
-    if config.arcgis_config["enabled"]:
-        
-        loguru.logger.info("Downloading ArcGis data...")
+    # Setup ArcGIS data
+    if config.arcgis.get("enabled", False):
+        loguru.logger.info("Downloading ArcGIS data...")
         arcgis_summary = setup_arcgis_data()
         loguru.logger.info(f"ArcGIS data download completed. Summary: {arcgis_summary}")
     else:
         loguru.logger.info("ArcGIS data collection is disabled in configuration")
         arcgis_summary = {'successful': 0, 'failed': 0, 'failed_details': []}
-    
-    # Download OSM wheelchair accessibility data
-    loguru.logger.info("Starting OSM wheelchair accessibility data download...")
-    osm_summary = setup_osm_data()
-    loguru.logger.info(f"OSM wheelchair accessibility data download completed. osm_summary: {osm_summary}")
     
     # Run transformation pipeline
     loguru.logger.info("Starting data transformation pipeline...")
@@ -112,10 +108,9 @@ def setup():
     # Final setup summary
     loguru.logger.info("=== SETUP COMPLETE ===")
     loguru.logger.info(f"ArcGIS layers: {arcgis_summary['successful']} successful, {arcgis_summary['failed']} failed")
-    loguru.logger.info(f"OSM data: {osm_summary['successful']} successful, {osm_summary['failed']} failed")
     loguru.logger.info(f"Transformations: {transform_summary['successful']}/{transform_summary['total_scripts']} successful")
     
-    total_failed = arcgis_summary['failed'] + osm_summary['failed'] + transform_summary['failed']
+    total_failed = arcgis_summary['failed'] + transform_summary['failed']
     if total_failed == 0:
         loguru.logger.info("🎉 All setup steps completed successfully!")
     else:
@@ -128,7 +123,7 @@ def setup_arcgis_data():
     
     try:
         # Get configuration
-        urls_file = config.arcgis_config["urls_file"]
+        urls_file = config.arcgis["urls_file"]
         db_path = get_db_path("arcgis")
         
         with open(urls_file, 'r') as f:
@@ -141,7 +136,7 @@ def setup_arcgis_data():
         data_collection = DataManager(
             json_file=urls_file,
             db_connection=db_path,
-            populate=config.arcgis_config["populate"]
+            populate=config.arcgis["populate"]
         )
         loguru.logger.info(f"Connected to ArcGIS database: {db_path}.db")
         loguru.logger.info("ArcGIS data collection completed")
@@ -159,8 +154,8 @@ def setup_arcgis_data():
             'failed': 1,
             'failed_details': [str(e)]
         }
-    
 
+<<<<<<< HEAD
 def setup_osm_data():
     """Setup OSM wheelchair accessibility data using centralized configuration."""
     loguru.logger.info("Setting up OSM wheelchair accessibility data...")
@@ -259,6 +254,8 @@ def setup_osm_data():
 <<<<<<< HEAD
         logger.error(f"❌ ArcGIS setup failed: {e}")
         return False
+=======
+>>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
 
 def run_transformations():
     """Run the data transformation pipeline."""
