@@ -1,6 +1,10 @@
 # Data
 /data/
 
+# Database files
+*.db
+rampa/duckdb/databases/
+
 # Mac OS-specific storage files
 .DS_Store
 
