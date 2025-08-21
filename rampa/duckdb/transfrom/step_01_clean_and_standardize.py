@@ -34,6 +34,7 @@ def main():
         source_db_path = get_db_path('arcgis')
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         target_db_path = get_db_path('final')
         
         logger.info(f"Source ArcGIS DB: {source_db_path}.db")
@@ -49,10 +50,16 @@ def main():
         
         logger.info(f"Source ArcGIS DB: {source_db_path}.db")
 >>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
+=======
+        target_db_path = get_db_path('final')
+        
+        logger.info(f"Source ArcGIS DB: {source_db_path}.db")
+>>>>>>> main
         logger.info(f"Target DB: {target_db_path}.db")
         
         # Connect to databases
         source_conn = duckdb.connect(f"{source_db_path}.db")
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -60,10 +67,13 @@ def main():
 >>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
 =======
 >>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
+=======
+>>>>>>> main
         target_conn = duckdb.connect(f"{target_db_path}.db")
         
         # Check source data availability
         source_tables = source_conn.execute("SHOW TABLES").fetchall()
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         
@@ -78,6 +88,10 @@ def main():
         
         logger.info(f"Found {len(source_tables)} ArcGIS tables")
 >>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
+=======
+        
+        logger.info(f"Found {len(source_tables)} ArcGIS tables")
+>>>>>>> main
         
         # Basic data validation
         total_arcgis_records = 0
@@ -89,6 +103,9 @@ def main():
         
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> main
         # Data quality checks
         logger.info("Performing data quality checks...")
         quality_issues = 0
@@ -109,6 +126,7 @@ def main():
             except:
                 # Skip if columns don't exist
                 pass
+<<<<<<< HEAD
 =======
         total_osm_records = 0
         for table in osm_tables:
@@ -146,10 +164,13 @@ def main():
                 # Skip if columns don't exist
                 pass
 >>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
+=======
+>>>>>>> main
         
         # Summary
         logger.info("=== CLEANING SUMMARY ===")
         logger.info(f"Total ArcGIS records: {total_arcgis_records:,}")
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -157,6 +178,8 @@ def main():
 >>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
 =======
 >>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
+=======
+>>>>>>> main
         logger.info(f"Data quality issues found: {quality_issues}")
         
         if quality_issues == 0:
@@ -178,12 +201,15 @@ def main():
                 source_conn.close()
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
             if 'osm_conn' in locals():
                 osm_conn.close()
 >>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
 =======
 >>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
+=======
+>>>>>>> main
             if 'target_conn' in locals():
                 target_conn.close()
         except:
