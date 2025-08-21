@@ -85,5 +85,6 @@
     "MUJERES_MAS_99_ANOS": "https://sigma.madrid.es/hosted/rest/services/ESTADISTICA/INDICADORES_EDAD_POBLACION/MapServer/218",
     "ACCESIBILIDAD_ACERAS_2020": "https://sigma.madrid.es/hosted/rest/services/OBRAS/ACCESIBILIDAD_ACERAS_2020/MapServer/1",
     "ACCESIBILIDAD_ACERAS_2021": "https://sigma.madrid.es/hosted/rest/services/OBRAS/ACCESIBILIDAD_ACERAS_2021/MapServer/0",
-    "ACCESIBILIDAD_ACERAS_2024": "https://sigma.madrid.es/hosted/rest/services/OBRAS/ACCESIBILIDAD_ACERAS_2024/MapServer/0"
+    "ACCESIBILIDAD_ACERAS_2024": "https://sigma.madrid.es/hosted/rest/services/OBRAS/ACCESIBILIDAD_ACERAS_2024/MapServer/0",
+    "ANCHO_MEDIO_ACERA": "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/ANCHO_MEDIO_ACERA/MapServer/0"
 }
