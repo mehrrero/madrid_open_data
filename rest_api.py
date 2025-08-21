@@ -1,10 +1,14 @@
 from fastapi import FastAPI
 <<<<<<< HEAD
+<<<<<<< HEAD
 from rampa.routing.route import Network, geocoder, ruta_to_json
 
 =======
 from rampa.routing.route import Network
 >>>>>>> d6db040 (routing api done)
+=======
+from rampa.routing.route import Network
+>>>>>>> fc49f44 (routing api done)
 
 app = FastAPI()
 network = Network(db='rampa/data/grafo.db', db_alt='rampa/data/grafo_alt.db')
@@ -31,6 +35,7 @@ async def create_route(x1: float, y1: float, x2: float, y2: float):
     
     # Convert GeoDataFrames to GeoJSON-like dicts
 <<<<<<< HEAD
+<<<<<<< HEAD
     ruta_json = ruta_to_json(ruta)
     ruta_alt_json = ruta_to_json(ruta_alt)
 
@@ -53,11 +58,17 @@ async def geocode_address(query: str):
     results = geocoder(query)
     return {"results": results}
 =======
+=======
+>>>>>>> fc49f44 (routing api done)
     ruta_json = ruta.to_json()
     ruta_alt_json = ruta_alt.to_json()
     
     return {
         "ruta": ruta_json,
         "ruta_alt": ruta_alt_json
+<<<<<<< HEAD
     }
 >>>>>>> d6db040 (routing api done)
+=======
+    }
+>>>>>>> fc49f44 (routing api done)

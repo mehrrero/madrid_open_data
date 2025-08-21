@@ -15,11 +15,14 @@ import duckdb
 from shapely import LineString
 import numpy as np
 <<<<<<< HEAD
+<<<<<<< HEAD
 import requests
 from pyproj import Transformer
 import json
 from shapely.geometry import LineString, mapping
 =======
+=======
+>>>>>>> fc49f44 (routing api done)
 
 >>>>>>> d6db040 (routing api done)
 

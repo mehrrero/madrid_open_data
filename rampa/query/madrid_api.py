@@ -1,5 +1,6 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 779203b (interface to download from madrid api added)
 import requests
@@ -204,3 +205,23 @@ class POIManager:
 
         self.gdf = gpd.GeoDataFrame(self.dataset, geometry=gpd.points_from_xy(self.dataset.LONGITUD, self.dataset.LATITUD), crs="EPSG:4326")
 >>>>>>> 779203b (interface to download from madrid api added)
+=======
+import geopandas as gpd
+import matplotlib.pyplot as plt
+
+class GeoDataset:
+    def __init__(self, url: str):
+        """
+        Inicializa la clase con la URL o ruta local de un dataset geoespacial.
+        """
+        self.url = url
+        self.gdf = None
+
+        try:
+            self.gdf = gpd.read_file(self.url)
+            print(f"Dataset cargado con {len(self.gdf)} registros.")
+        except Exception as e:
+            print(f"Error al cargar el dataset: {e}")
+
+    
+>>>>>>> fc49f44 (routing api done)
