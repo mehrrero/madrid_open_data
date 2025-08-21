@@ -1,5 +1,7 @@
 # Data
 /data/
+rampa/data/*.json
+rampa/data/*.geojson
 
 # Database files
 *.db
