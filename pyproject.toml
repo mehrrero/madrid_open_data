@@ -30,10 +30,31 @@ dependencies = [
     "scikit-learn",
     "arcgis",
     "tqdm>=4.67.1",
-    "loguru"
+    "loguru",
+    "osmnx>=2.0.6",
+    "pandana>=0.7",
+    "sqlalchemy>=2.0.43",
+    "duckdb-engine>=0.17.0",
+    "seaborn>=0.13.2",
+    "folium>=0.20.0",
+    "tomli>=2.2.1",
+    "tomli-w>=1.2.0",
+    "topojson>=1.10",
+    "pytopojson>=1.1.2",
 ]
 requires-python = "~=3.12.0"
 
+[project.scripts]
+rampa-setup = "setup:main"
+rampa-cleanup = "cleanup_databases:main"
+rampa-transform = "rampa.duckdb.src.run_transformations:main"
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.3.0",
+    "pytest>=8.0.0",
+    "ipykernel>=6.29.0",
+]
 
 [tool.ruff]
 line-length = 99

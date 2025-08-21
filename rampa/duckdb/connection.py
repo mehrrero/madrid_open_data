@@ -12,7 +12,11 @@ def open_connection(dbname=None) -> duckdb.DuckDBPyConnection:
         `duckdb.DuckDBPyConnection`: A connection object to the local database.
     """
     if dbname:
-        return duckdb.connect(f"{dbname}.db")
+        # Don't add .db if it's already there
+        if not dbname.endswith('.db'):
+            return duckdb.connect(f"{dbname}.db")
+        else:
+            return duckdb.connect(dbname)
     else:
         return duckdb.connect(":memory:")
 
@@ -57,5 +61,4 @@ def get_duckdb_connection(dbname: str = None) -> duckdb.DuckDBPyConnection:
     load_extension(con, "spatial")
     load_extension(con, "json")
 
-    return con
     return con
