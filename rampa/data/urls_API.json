@@ -1,0 +1,17 @@
+{
+    "Bibliotecas": "https://datos.madrid.es/egob/catalogo/201747-0-bibliobuses-bibliotecas.csv",
+    "Centros Mayores": "https://datos.madrid.es/egob/catalogo/200337-0-centros-mayores.csv",
+    "Centros Culturales": "https://datos.madrid.es/egob/catalogo/200304-0-centros-culturales.csv",
+    "Centros de Día": "https://datos.madrid.es/egob/catalogo/200342-0-centros-dia.csv",
+    "Centros de Discapacidad": "https://datos.madrid.es/egob/catalogo/205712-0-centros-discapacidad.csv",
+    "Instalaciones Accesibles": "https://datos.madrid.es/egob/catalogo/202162-0-instalaciones-accesibles-municip.csv",
+    "Instalaciones Accesibles No Municipales": "https://datos.madrid.es/egob/catalogo/202180-0-instalaciones-accesibles-no-muni.csv",
+    "Centros de Salud": "https://datos.madrid.es/egob/catalogo/201544-0-centros-salud.csv",
+    "Parques y Jardines": "https://datos.madrid.es/egob/catalogo/200761-0-parques-jardines.csv",
+    "Atención a Mujeres": "https://datos.madrid.es/egob/catalogo/205736-0-atencion-mujeres.csv",
+    "Residencias de Ancianos": "https://datos.madrid.es/egob/catalogo/300048-0-ancianos-residencias-apartamento.csv",
+    "Atención Médica": "https://datos.madrid.es/egob/catalogo/212769-0-atencion-medica.csv",
+    "Atención Social": "https://datos.madrid.es/egob/catalogo/212774-0-atencion-social.csv",
+    "Templos Católicos": "https://datos.madrid.es/egob/catalogo/209426-0-templos-catolicas.csv",
+    "Templos Otros": "https://datos.madrid.es/egob/catalogo/209434-0-templos-otros.csv"
+}

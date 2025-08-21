@@ -198,3 +198,4 @@ cython_debug/
 
 __pycache__
 notebooks/cache
+cache
