@@ -14,10 +14,14 @@ from shapely.validation import explain_validity
 import duckdb
 from shapely import LineString
 import numpy as np
+<<<<<<< HEAD
 import requests
 from pyproj import Transformer
 import json
 from shapely.geometry import LineString, mapping
+=======
+
+>>>>>>> d6db040 (routing api done)
 
 class Network:
     """

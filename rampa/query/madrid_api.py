@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import requests
 import gzip
 import io
@@ -98,3 +99,23 @@ class POIManager:
             self.db_connection.execute("CREATE OR REPLACE TABLE pois AS SELECT * FROM pois")
 
         self.gdf = gpd.GeoDataFrame(self.dataset, geometry=gpd.points_from_xy(self.dataset.LONGITUD, self.dataset.LATITUD), crs="EPSG:4326")
+=======
+import geopandas as gpd
+import matplotlib.pyplot as plt
+
+class GeoDataset:
+    def __init__(self, url: str):
+        """
+        Inicializa la clase con la URL o ruta local de un dataset geoespacial.
+        """
+        self.url = url
+        self.gdf = None
+
+        try:
+            self.gdf = gpd.read_file(self.url)
+            print(f"Dataset cargado con {len(self.gdf)} registros.")
+        except Exception as e:
+            print(f"Error al cargar el dataset: {e}")
+
+    
+>>>>>>> d6db040 (routing api done)

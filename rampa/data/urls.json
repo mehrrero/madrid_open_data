@@ -86,5 +86,9 @@
     "ACCESIBILIDAD_ACERAS_2020": "https://sigma.madrid.es/hosted/rest/services/OBRAS/ACCESIBILIDAD_ACERAS_2020/MapServer/1",
     "ACCESIBILIDAD_ACERAS_2021": "https://sigma.madrid.es/hosted/rest/services/OBRAS/ACCESIBILIDAD_ACERAS_2021/MapServer/0",
     "ACCESIBILIDAD_ACERAS_2024": "https://sigma.madrid.es/hosted/rest/services/OBRAS/ACCESIBILIDAD_ACERAS_2024/MapServer/0",
+<<<<<<< HEAD
     "ANCHO_MEDIO_ACERA": "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/ANCHO_MEDIO_ACERA/MapServer/0"
+=======
+    "ANCHO_MEDIO_VIARIO": "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/ANCHO_MEDIO_VIARIO/MapServer/0"
+>>>>>>> d6db040 (routing api done)
 }
