@@ -14,7 +14,8 @@ from shapely.validation import explain_validity
 import duckdb
 from shapely import LineString
 import numpy as np
-
+import requests
+from pyproj import Transformer
 
 class Network:
     """
@@ -329,3 +330,44 @@ class Network:
         pat = self.route(coord1, coord2, alternate)
         ed = self.path(pat)
         return ed
+    
+    
+import requests
+from pyproj import Transformer
+
+class GeoCoder:
+    def __init__(self):
+        self.address_URL = 'https://sigma.madrid.es/hosted/rest/services/GEOLOCATOR/GEOLOCALIZADOR_MADRID_VIAL_NDP/GeocodeServer'
+        self.POI_URL = 'https://sigma.madrid.es/hosted/rest/services/GEOLOCATOR/POIS/GeocodeServer'
+        self.transformer = Transformer.from_crs("EPSG:25830", "EPSG:4326", always_xy=True)
+    
+    def _geocode(self, service_url, query):
+        params = {
+            "SingleLine": query,
+            "f": "json",
+            "outFields": "*",
+            "maxLocations": 10
+        }
+        response = requests.get(f"{service_url}/findAddressCandidates", params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        results = []
+        for candidate in data.get("candidates", []):
+            x, y = candidate["location"]["x"], candidate["location"]["y"]
+            lon, lat = self.transformer.transform(x, y)
+            results.append({
+                "address": candidate["address"],
+                "lat": lat,
+                "lon": lon,
+                "score": candidate.get("score")
+            })
+        return results
+    
+    def __call__(self, query):
+        # Llamar a ambos servicios y combinar resultados
+        address_results = self._geocode(self.address_URL, query)
+        poi_results = self._geocode(self.POI_URL, query)
+        return address_results + poi_results
+
+geocoder = GeoCoder()
