@@ -3,11 +3,19 @@
 Simple setup script for Madrid Open Data project.
 """
 
+#!/usr/bin/env python3
+"""
+Simple setup script for Madrid Open Data project.
+"""
+
 import json
+from pathlib import Path
 from pathlib import Path
 import urllib3
 from loguru import logger
+from loguru import logger
 
+# Suppress SSL warnings
 # Suppress SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
