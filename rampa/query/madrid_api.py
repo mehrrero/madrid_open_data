@@ -34,9 +34,11 @@ class GeoDataset:
             requests.HTTPError: If the HTTP request returned an unsuccessful status code.
             pandas.errors.ParserError: If the CSV parsing fails.
         """
-        
+        headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0 Safari/537.36"
+                }
         # Download the file
-        response = requests.get(self.url)
+        response = requests.get(self.url, headers=headers)
         response.raise_for_status()
 
         # Read CSV directly from response content with correct separator
