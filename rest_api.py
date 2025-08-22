@@ -1,8 +1,10 @@
 from fastapi import FastAPI
-from rampa.routing.route import Network, geocoder, ruta_to_json
+from rampa.routing.route import Network, geocoder, ruta_to_jsonç
+import duckdb
 
 app = FastAPI()
 network = Network(db='rampa/data/grafo.db', db_alt='rampa/data/grafo_alt.db')
+db_connection = duckdb.connect('rampa/data/pois.db')
 
 @app.post("/ruta")
 async def create_route(x1: float, y1: float, x2: float, y2: float):
@@ -46,3 +48,10 @@ async def geocode_address(query: str):
     
     results = geocoder(query)
     return {"results": results}
+
+
+@app.get("/layer/{layer_name}")
+async def get_layer(layer_name: str):
+    layer_data = db_connection.execute(f"SELECT * FROM {layer_name}").fetchdf()
+    return {"layer": layer_data}
+
