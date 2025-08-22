@@ -35,7 +35,9 @@ class Config:
             # Other configs
             self.arcgis = data.get('arcgis', {})
             self.transform = data.get('transform', {})
-            
+            self.paths = data.get('paths', {})
+            self.madrid_api = data.get('madrid_api', {})
+
         else:
             # Fallback defaults
             base_dir = self.project_root / "rampa/duckdb/databases"

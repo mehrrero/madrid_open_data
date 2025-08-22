@@ -1,6 +1,0 @@
-{
-  "db": "rampa/data/grafo.db",
-  "db_alt": "rampa/data/grafo_alt.db",
-  "pois_db": "rampa/data/pois.db",
-  "ancho_medio_acera": "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/ANCHO_MEDIO_ACERA/MapServer/0"
-}

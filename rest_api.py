@@ -4,13 +4,13 @@ import duckdb
 import json
 import pandas as pd
 import math
+from rampa.config import config
 
-with open("config.json", "r", encoding="utf-8") as f:
-    json_config = json.load(f)
+
 
 app = FastAPI()
-network = Network(db=json_config['db'], db_alt=json_config['db_alt'])
-db_connection = duckdb.connect(json_config['pois_db'])
+network = Network(db=config.paths['grafo_db'], db_alt=config.paths['grafo_db_alt'])
+db_connection = duckdb.connect(config.paths['pois_db'])
 
 
 @app.on_event("startup")

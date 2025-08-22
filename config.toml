@@ -20,6 +20,11 @@ urls_file = "rampa/data/urls.json"
 enabled = true
 populate = true
 
+[madrid_api]
+ancho_medio_acera = "https://sigma.madrid.es/hosted/rest/services/CARTOGRAFIA/ANCHO_MEDIO_ACERA/MapServer/0"
+store = true
+populate = true
+
 [transform]
 transform_dir = "rampa/duckdb/transfrom"
 script_pattern = "step_*.py"
@@ -40,5 +45,6 @@ file_pattern = "file_{time}.log"
 [paths]
 data_dir = "rampa/data"
 notebooks_dir = "notebooks"
-reports_dir = "reports"
-models_dir = "models"
+grafo_db = "rampa/duckdb/databases/grafo.db"
+grafo_db_alt = "rampa/duckdb/databases/grafo_alt.db"
+pois_db = "rampa/duckdb/databases/rampa.db"
