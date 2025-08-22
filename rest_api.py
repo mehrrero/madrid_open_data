@@ -1,7 +1,9 @@
 from fastapi import FastAPI
-from rampa.routing.route import Network, geocoder, ruta_to_jsonç
+from rampa.routing.route import Network, geocoder, ruta_to_json
 import duckdb
 import json
+import pandas as pd
+import math
 
 with open("config.json", "r", encoding="utf-8") as f:
     json_config = json.load(f)
@@ -68,6 +70,20 @@ async def geocode_address(query: str):
 
 @app.get("/layer/{layer_name}")
 async def get_layer(layer_name: str):
-    layer_data = db_connection.execute(f"SELECT * FROM {layer_name}").fetchdf()
-    return {"layer": layer_data}
+    df = db_connection.execute(f"SELECT * FROM {layer_name}").fetchdf()
+    # Convert DataFrame to list of dicts
+    records = df.to_dict(orient="records")
+
+    # Recursively replace NaN and infinite values with None
+    def clean_value(v):
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return None
+        return v
+
+    cleaned_records = [
+        {k: clean_value(v) for k, v in record.items()}
+        for record in records
+    ]
+
+    return cleaned_records
 
