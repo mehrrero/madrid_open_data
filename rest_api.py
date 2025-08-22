@@ -68,9 +68,55 @@ async def geocode_address(query: str):
     return {"results": results}
 
 
-@app.get("/layer/{layer_name}")
+
+
+@app.get("/tables/{table_name}")
+async def get_table(table_name: str):
+    df = db_connection.execute(f"SELECT * FROM {table_name}").fetchdf()
+    # Convert DataFrame to list of dicts
+    records = df.to_dict(orient="records")
+
+    # Recursively replace NaN and infinite values with None
+    def clean_value(v):
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return None
+        return v
+
+    cleaned_records = [
+        {k: clean_value(v) for k, v in record.items()}
+        for record in records
+    ]
+
+    return cleaned_records
+
+@app.get("/layers/{layer_name}")
+
 async def get_layer(layer_name: str):
-    df = db_connection.execute(f"SELECT * FROM {layer_name}").fetchdf()
+    """
+    Layer names in fact_demographics table:
+
+    total_population = Column(Integer)
+    density = Column(Float)
+    edad_promedio = Column(Float)
+    proporcion_juventud = Column(Float)
+    proporcion_envejecimiento = Column(Float)
+    proporcion_sobreenvejecimiento = Column(Float)
+    indice_envejecimiento = Column(Float)
+    indice_juventud = Column(Float)
+    indice_dependencia = Column(Float)
+    indice_estructura_poblacion_act = Column(Float)
+    indice_reemplazo_poblacion_acti = Column(Float)
+    razon_progresividad_demografica = Column(Float)
+    """
+    # Join fact_demographics with dim_geography to get geometry (geom) for each census_section_id
+    df = db_connection.execute(
+        f"""
+        SELECT fd.census_section_id, fd.{layer_name}, dg.geom
+        FROM fact_demographics fd
+        JOIN dim_geography dg
+        ON fd.census_section_id = dg.census_section_id
+        """
+    ).fetchdf()
     # Convert DataFrame to list of dicts
     records = df.to_dict(orient="records")
 

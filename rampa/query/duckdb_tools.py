@@ -169,7 +169,7 @@ class DataManager(Data_Collection):
         super().__init__(url_dict=url_dict, json_file=json_file, populate=False)
         
         if db_connection is not None:
-            self.db_connection = duckdb.connect(db_connection)
+            self.db_connection = duckdb.connect(f"{db_connection}.db")
             if populate:
                 self.create_collection()
             else:
