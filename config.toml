@@ -7,20 +7,11 @@ version = "1.0.0"
 base_dir = "rampa/duckdb/databases"
 creation_order = [
     "arcgis",
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    "osm",
->>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
-=======
->>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
     "final",
 ]
 
 [database.names]
 arcgis = "madrid_layers"
-<<<<<<< HEAD
-<<<<<<< HEAD
 final = "rampa"
 test = "test"
 
@@ -31,36 +22,10 @@ populate = true
 
 [transform]
 transform_dir = "rampa/duckdb/transfrom"
-=======
-osm = "madrid_osm"
-=======
->>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
-final = "rampa"
-test = "test"
-
-[arcgis]
-urls_file = "rampa/data/urls.json"
-enabled = false
-populate = true
-
-[transform]
-<<<<<<< HEAD
-transform_dir = "/Users/admin/Desktop/personal_projects/Madrid Open Data/madrid-open-data/rampa/duckdb/transfrom"
->>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
-=======
-transform_dir = "rampa/duckdb/transfrom"
->>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
 script_pattern = "step_*.py"
 execution_order = "filename"
 expected_scripts = [
     "step_01_clean_and_standardize.py",
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    "step_02_geography_dimension.py",
->>>>>>> 433b687 (Refactor geospatial processing and demographics scripts; improve error handling and logging)
-=======
->>>>>>> 749a722 (Refactor: Remove ArcGIS and OSM data setup from setup.py)
     "step_02_geospatial_processing.py",
     "step_03_demographics_indicators.py",
     "step_03_demographics_normalization.py",
