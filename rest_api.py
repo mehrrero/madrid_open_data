@@ -1,10 +1,26 @@
 from fastapi import FastAPI
 from rampa.routing.route import Network, geocoder, ruta_to_jsonç
 import duckdb
+import json
+
+with open("config.json", "r", encoding="utf-8") as f:
+    json_config = json.load(f)
 
 app = FastAPI()
-network = Network(db='rampa/data/grafo.db', db_alt='rampa/data/grafo_alt.db')
-db_connection = duckdb.connect('rampa/data/pois.db')
+network = Network(db=json_config['db'], db_alt=json_config['db_alt'])
+db_connection = duckdb.connect(json_config['pois_db'])
+
+
+@app.on_event("startup")
+def startup_event():
+    print("App is starting…")
+
+@app.on_event("shutdown")
+def shutdown_event():
+    db_connection.close()
+    print("DB closed.")
+
+
 
 @app.post("/ruta")
 async def create_route(x1: float, y1: float, x2: float, y2: float):
