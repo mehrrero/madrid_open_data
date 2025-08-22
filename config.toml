@@ -17,7 +17,7 @@ test = "test"
 
 [arcgis]
 urls_file = "rampa/data/urls.json"
-enabled = false
+enabled = true
 populate = true
 
 [transform]
