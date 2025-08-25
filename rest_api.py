@@ -1,9 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from rampa.routing.route import Network, geocoder, ruta_to_json
 import duckdb
 import json
 import pandas as pd
 import math
+from typing import List, Optional
 from rampa.config import config
 
 
@@ -12,6 +14,13 @@ app = FastAPI()
 network = Network(db=config.paths['grafo_db'], db_alt=config.paths['grafo_db_alt'])
 db_connection = duckdb.connect(config.paths['pois_db'])
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def startup_event():
@@ -132,4 +141,186 @@ async def get_layer(layer_name: str):
     ]
 
     return cleaned_records
+
+
+@app.get("/pois")
+async def get_pois(
+    category: Optional[str] = Query(
+        None, 
+        description="Filter by specific category",
+        enum=[
+            "all",
+            "CentrosSalud",
+            "ResidenciasApartamentosMayores", 
+            "CentrosDiaMayores",
+            "ParquesJardines",
+            "CentrosServiciosSociales",
+            "OficinasCorreos"
+        ]
+    ),
+    accessibility: Optional[str] = Query(
+        None, 
+        description="Filter by accessibility: '0' (not accessible) or '1' (accessible - any value > 0)",
+        enum=["0", "1"]
+    ),
+    limit: Optional[int] = Query(1000, description="Maximum number of POIs to return")
+):
+    """
+    Get essential services POIs: farmacias, centros de salud, residencias, 
+    centros de dias, parques y jardines, servicios sociales, bancos.
+    """
+    
+    # Define the category mappings
+    category_mappings = {
+        "CentrosSalud": "/contenido/entidadesYorganismos/CentrosAtencionMedica/CentrosSalud",
+        "ResidenciasApartamentosMayores": "/contenido/entidadesYorganismos/CentrosAtencionSocialMayores/ResidenciasApartamentosMayores",
+        "CentrosDiaMayores": "/contenido/entidadesYorganismos/CentrosAtencionSocialMayores/CentrosDiaMayores",
+        "ParquesJardines": "/contenido/entidadesYorganismos/ParquesJardines",
+        "CentrosServiciosSociales": "/contenido/entidadesYorganismos/CentrosAtencionSocial/CentrosServiciosSociales",
+        "OficinasCorreos": "/contenido/entidadesYorganismos/OficinasCorreos"
+    }
+    
+    # Build the SQL query
+    if category and category != "all":
+        # Filter by specific category
+        if category in category_mappings:
+            db_category = category_mappings[category]
+            base_query = """
+                SELECT 
+                    PK as poi_id,
+                    NOMBRE as name,
+                    TIPO as category,
+                    ACCESIBILIDAD as wheelchair_accessible,
+                    "NOMBRE-VIA" as address,
+                    LATITUD as latitude,
+                    LONGITUD as longitude,
+                    DESCRIPCION as description,
+                    DISTRITO as district,
+                    BARRIO as neighborhood
+                FROM pois
+                WHERE TIPO = ?
+            """
+            params = [db_category]
+        else:
+            # Invalid category
+            return []
+    else:
+        # Get all essential services
+        essential_categories = list(category_mappings.values())
+        placeholders = ','.join(['?' for _ in essential_categories])
+        base_query = f"""
+            SELECT 
+                PK as poi_id,
+                NOMBRE as name,
+                TIPO as category,
+                ACCESIBILIDAD as wheelchair_accessible,
+                "NOMBRE-VIA" as address,
+                LATITUD as latitude,
+                LONGITUD as longitude,
+                DESCRIPCION as description,
+                DISTRITO as district,
+                BARRIO as neighborhood
+            FROM pois
+            WHERE TIPO IN ({placeholders})
+        """
+        params = essential_categories.copy()
+    
+    # Add accessibility filter
+    if accessibility:
+        if accessibility == "0":
+            # Not accessible (exactly 0)
+            base_query += " AND ACCESIBILIDAD = '0'"
+        elif accessibility == "1":
+            # Accessible (any value greater than 0)
+            base_query += " AND ACCESIBILIDAD != '0' AND ACCESIBILIDAD IS NOT NULL"
+    
+    # Add limit
+    base_query += f" LIMIT ?"
+    params.append(str(limit if limit is not None else 1000))
+    
+    try:
+        # Execute query
+        df = db_connection.execute(base_query, params).fetchdf()
+        
+        # Convert DataFrame to list of dicts
+        records = df.to_dict(orient="records")
+        
+        # Clean NaN and infinite values
+        def clean_value(v):
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                return None
+            return v
+        
+        cleaned_records = [
+            {k: clean_value(v) for k, v in record.items()}
+            for record in records
+        ]
+        
+        return cleaned_records
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.get("/pois/categories")
+async def get_poi_categories():
+    """
+    Get available POI categories with counts for the frontend dropdown.
+    """
+    try:
+        # Define the category mappings with human-readable names
+        category_info = {
+            "CentrosSalud": {
+                "name": "Centros de Salud",
+                "db_value": "/contenido/entidadesYorganismos/CentrosAtencionMedica/CentrosSalud",
+                "description": "Health Centers"
+            },
+            "ResidenciasApartamentosMayores": {
+                "name": "Residencias",
+                "db_value": "/contenido/entidadesYorganismos/CentrosAtencionSocialMayores/ResidenciasApartamentosMayores",
+                "description": "Nursing Homes & Apartments"
+            },
+            "CentrosDiaMayores": {
+                "name": "Centros de Día",
+                "db_value": "/contenido/entidadesYorganismos/CentrosAtencionSocialMayores/CentrosDiaMayores",
+                "description": "Day Centers"
+            },
+            "ParquesJardines": {
+                "name": "Parques y Jardines",
+                "db_value": "/contenido/entidadesYorganismos/ParquesJardines",
+                "description": "Parks & Gardens"
+            },
+            "CentrosServiciosSociales": {
+                "name": "Servicios Sociales",
+                "db_value": "/contenido/entidadesYorganismos/CentrosAtencionSocial/CentrosServiciosSociales",
+                "description": "Social Services"
+            },
+            "OficinasCorreos": {
+                "name": "Oficinas de Correos",
+                "db_value": "/contenido/entidadesYorganismos/OficinasCorreos",
+                "description": "Post Offices"
+            }
+        }
+        
+        # Get counts for each category
+        categories_with_counts = []
+        for key, info in category_info.items():
+            count = db_connection.execute(
+                "SELECT COUNT(*) as count FROM pois WHERE TIPO = ?", 
+                [info["db_value"]]
+            ).fetchone()[0]
+            
+            categories_with_counts.append({
+                "value": key,
+                "label": info["name"],
+                "description": info["description"],
+                "count": count
+            })
+        
+        return {
+            "categories": categories_with_counts,
+            "total_categories": len(categories_with_counts)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 

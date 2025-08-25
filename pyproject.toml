@@ -43,6 +43,7 @@ dependencies = [
     "pytopojson>=1.1.2",
     "uvicorn>=0.35.0",
     "fastapi>=0.116.1",
+    "pyfiglet>=1.0.4",
 ]
 requires-python = "~=3.12.0"
 

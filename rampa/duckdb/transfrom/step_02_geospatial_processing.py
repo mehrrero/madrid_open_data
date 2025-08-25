@@ -1,14 +1,15 @@
-# Geospatial processing script to extract geographic data from Secciones_Censales.json
+# Geospatial processing script to extract geographic data from TopoJSON
 # and create the dim_geography table with proper geometries.
 
 """
 Geospatial processing script to extract geographic data from TopoJSON census sections
-and create the dim_geography table.
+and create the dim_geography table with proper WGS84 geometries.
 """
 
 import duckdb
-import json
+import geopandas as gpd
 import sys
+from pathlib import Path
 from loguru import logger
 
 # Configure minimal logging
@@ -16,211 +17,133 @@ logger.remove()
 logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {message}")
 
 TARGET_DATABASE_PATH = 'rampa/duckdb/databases/rampa'
-CENSUS_SECTIONS_JSON = 'rampa/data/Secciones_Censales.json'
+TOPOJSON_PATH = 'rampa/data/Secciones_Censales.json'
 
 def load_census_sections_from_topojson():
-    """Load census sections from TopoJSON file and extract basic geometries."""
-    logger.info("Loading census sections from TopoJSON...")
+    """Load census sections from TopoJSON file using GeoPandas."""
+    logger.info("Loading census sections from TopoJSON file...")
     
     try:
-        # Load the TopoJSON file
-        with open(CENSUS_SECTIONS_JSON, 'r', encoding='utf-8') as f:
-            topo_data = json.load(f)
+        # Read the TopoJSON file directly with GeoPandas
+        gdf = gpd.read_file(TOPOJSON_PATH)
         
-        logger.info(f"Loaded TopoJSON with {len(topo_data.get('arcs', []))} arcs")
+        logger.info(f"Loaded {len(gdf)} features from TopoJSON")
+        logger.info(f"CRS: {gdf.crs}")
+        logger.info(f"Columns: {list(gdf.columns)}")
         
-        # Extract census sections from objects
-        census_sections = []
-        if 'objects' in topo_data and 'SECCIONES_CENSALES' in topo_data['objects']:
-            geometries = topo_data['objects']['SECCIONES_CENSALES'].get('geometries', [])
-            logger.info(f"Found {len(geometries)} census section geometries")
-            
-            for geom in geometries:
-                props = geom.get('properties', {})
-                
-                # Extract the properties we need
-                census_section = {
-                    'district_id': str(props.get('COD_DIS', '')).strip() if props.get('COD_DIS') else None,
-                    'district_name': str(props.get('NOM_DIS', '')).strip() if props.get('NOM_DIS') else None,
-                    'neighborhood_name': str(props.get('NOM_BAR', '')).strip() if props.get('NOM_BAR') else None,
-                    'census_section_id': str(props.get('COD_SECCIO', '')).strip() if props.get('COD_SECCIO') else None,
-                    'arcs': geom.get('arcs', []),
-                    'geometry_type': geom.get('type', 'Polygon')
-                }
-                
-                if census_section['census_section_id']:
-                    census_sections.append(census_section)
+        # Check coordinate bounds
+        bounds = gdf.total_bounds
+        logger.info(f"Coordinate bounds: {bounds}")
         
-        logger.info(f"✅ Loaded {len(census_sections)} census sections with properties")
-        return census_sections, topo_data.get('arcs', [])
+        # Verify coordinates are in Madrid area
+        if bounds[0] < -4 or bounds[0] > -3 or bounds[1] < 40 or bounds[1] > 41:
+            logger.warning("Coordinates may not be in Madrid area")
+        else:
+            logger.info("✅ Coordinates are in Madrid area")
+        
+        return gdf
         
     except Exception as e:
-        logger.error(f"❌ Error loading TopoJSON: {e}")
-        return [], []
+        logger.error(f"Error loading TopoJSON file: {e}")
+        raise
 
-def convert_arcs_to_simple_geometry(arcs_indices, all_arcs):
-    """Convert TopoJSON arc indices to a simple WKT-like representation."""
-    try:
-        if not arcs_indices or not all_arcs:
-            return None
-        
-        # For simplicity, we'll create a basic polygon representation
-        # This is a simplified approach - for production you'd want proper TopoJSON conversion
-        coordinates = []
-        
-        for arc_group in arcs_indices:
-            if isinstance(arc_group, list):
-                for arc_index in arc_group:
-                    if isinstance(arc_index, int) and abs(arc_index) < len(all_arcs):
-                        arc = all_arcs[abs(arc_index)]
-                        if arc and len(arc) > 0:
-                            # Get first and last coordinates of this arc
-                            if len(arc[0]) >= 2:
-                                coordinates.extend([arc[0], arc[-1] if len(arc) > 1 else arc[0]])
-        
-        if len(coordinates) >= 3:
-            # Create a simple WKT polygon
-            coord_strings = [f"{coord[0]} {coord[1]}" for coord in coordinates[:10]]  # Limit for simplicity
-            if len(coord_strings) >= 3:
-                # Close the polygon by adding first point at the end
-                if coord_strings[0] != coord_strings[-1]:
-                    coord_strings.append(coord_strings[0])
-                wkt = f"SRID=4326;POLYGON(({','.join(coord_strings)}))"
-                return wkt
-        
-        return None
-        
-    except Exception as e:
-        logger.warning(f"Error converting arcs to geometry: {e}")
-        return None
-
-
-def main():
-    """Process geospatial data for dim_geography table from TopoJSON."""
-    logger.info("Starting geospatial processing...")
+def create_dim_geography_table(conn):
+    """Create the dim_geography table with proper schema."""
+    logger.info("Creating dim_geography table...")
     
-    target_conn = None
-    try:
-        # Load census sections from TopoJSON
-        census_sections, all_arcs = load_census_sections_from_topojson()
+    conn.execute("DROP TABLE IF EXISTS dim_geography")
+    conn.execute("""
+        CREATE TABLE dim_geography (
+            census_section_id VARCHAR PRIMARY KEY,
+            district_id VARCHAR,
+            district_name VARCHAR,
+            neighborhood_id VARCHAR,
+            neighborhood_name VARCHAR,
+            geom VARCHAR
+        )
+    """)
+    logger.info("✅ dim_geography table created")
+
+def populate_dim_geography_table(conn, gdf):
+    """Populate the dim_geography table with data from GeoDataFrame."""
+    logger.info("Populating dim_geography table...")
+    
+    # Prepare data for insertion
+    records = []
+    for idx, row in gdf.iterrows():
+        # Extract properties
+        census_section_id = str(row['COD_SECCIO']) if row['COD_SECCIO'] else None
+        district_id = str(row['COD_DIS']) if row['COD_DIS'] else None
+        district_name = str(row['NOM_DIS']) if row['NOM_DIS'] else None
+        neighborhood_id = str(row['COD_BAR']) if row['COD_BAR'] else None
+        neighborhood_name = str(row['NOM_BAR']) if row['NOM_BAR'] else None
         
-        if not census_sections:
-            logger.error("❌ No census sections loaded from TopoJSON!")
-            return
+        # Convert geometry to WKT
+        geom_wkt = row.geometry.wkt if row.geometry else None
         
-        # Connect to target database
-        target_conn = duckdb.connect(f"{TARGET_DATABASE_PATH}.db")
-        
-        # Create dim_geography table if it doesn't exist
-        target_conn.execute("""
-            CREATE TABLE IF NOT EXISTS dim_geography (
-                district_id VARCHAR,
-                district_name TEXT,
-                neighborhood_name TEXT,
-                census_section_id VARCHAR PRIMARY KEY,
-                geom TEXT
-            )
-        """)
-        
-        # Check if table already has data
-        existing_count = target_conn.execute("SELECT COUNT(*) FROM dim_geography").fetchone()[0]
-        
-        if existing_count > 0:
-            logger.info(f"dim_geography table already contains {existing_count} records")
-            logger.info("✅ Geospatial processing skipped - table already populated!")
-            return True
-        
-        logger.info("dim_geography table is empty, proceeding with population")
-        
-        # Process census sections
-        logger.info(f"Processing {len(census_sections)} census sections...")
-        
-        records = []
-        sections_with_geom = 0
-        seen_section_ids = set()
-        
-        for section in census_sections:
-            section_id = section['census_section_id']
-            
-            # Skip duplicates
-            if section_id in seen_section_ids:
-                logger.warning(f"Duplicate census section ID found: {section_id}, skipping...")
-                continue
-            
-            seen_section_ids.add(section_id)
-            
-            # Convert arcs to simple geometry
-            geom_wkt = convert_arcs_to_simple_geometry(section['arcs'], all_arcs)
-            if geom_wkt:
-                sections_with_geom += 1
-            
-            record = (
-                section['district_id'],
-                section['district_name'],
-                section['neighborhood_name'],
-                section['census_section_id'],
+        if census_section_id and geom_wkt:
+            records.append((
+                census_section_id,
+                district_id,
+                district_name,
+                neighborhood_id,
+                neighborhood_name,
                 geom_wkt
-            )
-            records.append(record)
+            ))
+    
+    # Insert records
+    if records:
+        conn.executemany("""
+            INSERT OR REPLACE INTO dim_geography 
+            (census_section_id, district_id, district_name, neighborhood_id, neighborhood_name, geom)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, records)
         
-        logger.info(f"After deduplication: {len(records)} unique sections")
-        logger.info(f"Generated geometries for {sections_with_geom}/{len(records)} sections")
+        logger.info(f"✅ Inserted {len(records)} census sections")
         
-        # Insert records
-        if records:
-            logger.info(f"Inserting {len(records):,} records...")
-            target_conn.execute("BEGIN TRANSACTION")
-            
-            try:
-                target_conn.executemany("""
-                    INSERT INTO dim_geography (district_id, district_name, neighborhood_name, census_section_id, geom)
-                    VALUES (?, ?, ?, ?, ?)
-                """, records)
-                
-                target_conn.execute("COMMIT")
-                logger.info("✅ All records inserted successfully!")
-                
-            except Exception as e:
-                target_conn.execute("ROLLBACK")
-                logger.error(f"❌ Insert failed: {e}")
-                raise
+        # Print summary statistics
+        total_sections = conn.execute("SELECT COUNT(*) FROM dim_geography").fetchone()[0]
+        sections_with_geom = conn.execute("SELECT COUNT(*) FROM dim_geography WHERE geom IS NOT NULL").fetchone()[0]
         
-        # Show summary
-        summary = target_conn.execute("""
-            SELECT 
-                COUNT(*) as total,
-                COUNT(DISTINCT district_id) as districts,
-                COUNT(district_name) as has_names,
-                COUNT(geom) as has_geometry
-            FROM dim_geography
-        """).fetchone()
+        logger.info(f"Total census sections: {total_sections}")
+        logger.info(f"Sections with geometry: {sections_with_geom}")
         
-        logger.info(f"✅ Completed! {summary[0]:,} records, {summary[1]} districts, {summary[2]} with names, {summary[3]} with geometry")
-        
-        # Show top districts
-        districts = target_conn.execute("""
-            SELECT district_name, COUNT(*) as sections
+        # Print district distribution
+        district_dist = conn.execute("""
+            SELECT district_name, COUNT(*) as sections 
             FROM dim_geography 
-            WHERE district_name IS NOT NULL
-            GROUP BY district_name
+            GROUP BY district_name 
             ORDER BY sections DESC
-            LIMIT 5
         """).fetchall()
         
-        logger.info("Top districts:")
-        for name, count in districts:
-            logger.info(f"  {name}: {count} sections")
+        logger.info("District distribution:")
+        for district, count in district_dist[:5]:  # Show top 5
+            logger.info(f"  {district}: {count} sections")
         
-        logger.info("✅ Geospatial processing completed!")
-        return True
-            
-    except Exception as e:
-        logger.error(f"❌ Error: {e}")
-        return False
-    finally:
-        if target_conn:
-            target_conn.close()
+    else:
+        logger.warning("No records to insert")
 
+def main():
+    """Main function to process geospatial data."""
+    logger.info("🚀 Starting geospatial processing...")
+    
+    try:
+        # Load data from TopoJSON
+        gdf = load_census_sections_from_topojson()
+        
+        # Connect to database
+        conn = duckdb.connect(f"{TARGET_DATABASE_PATH}.db")
+        
+        # Create and populate table
+        create_dim_geography_table(conn)
+        populate_dim_geography_table(conn, gdf)
+        
+        conn.close()
+        logger.info("✅ Geospatial processing completed successfully!")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during geospatial processing: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
