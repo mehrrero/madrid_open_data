@@ -11,7 +11,7 @@ from rampa.config import config
 
 
 app = FastAPI()
-network = Network(db=config.paths['grafo_db'], db_alt=config.paths['grafo_db_alt'])
+network = Network(db=config.paths['grafo_db'])
 db_connection = duckdb.connect(config.paths['pois_db'])
 
 app.add_middleware(
@@ -324,3 +324,22 @@ async def get_poi_categories():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+
+
+@app.get("/edge/{ID}")
+async def get_edge_data(ID: str):
+    """
+    Get data for a specific edge by its ID.
+    """
+    try:
+        edge_data = db_connection.execute(
+            "SELECT * FROM edges WHERE ID = ?", [ID]
+        ).fetchone()
+
+        if edge_data is None:
+            raise HTTPException(status_code=404, detail="Edge not found")
+
+        return edge_data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")

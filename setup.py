@@ -105,7 +105,7 @@ def setup_network():
         gdf = None
         
     logger.info("Creating networks")
-    net = Network(gdf, db=config.paths['grafo_db'], db_alt=config.paths['grafo_db_alt'], aceras=aceras, row='Ancho_medio', store=config.madrid_api['store'])
+    net = Network(gdf, db=config.paths['grafo_db'], aceras=aceras, row='Ancho_medio', store=config.madrid_api['store'])
 
     logger.info("Loading POI data")
     with open('rampa/data/urls_API.json', 'r') as f:

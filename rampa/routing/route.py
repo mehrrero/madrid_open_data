@@ -32,11 +32,7 @@ class Network:
         store (bool): Whether to store the network in the database after creation.
         nodes (DataFrame): DataFrame of network nodes.
         edges (DataFrame): DataFrame of network edges.
-        edges_alt (DataFrame): DataFrame of alternate network edges.
-        network (pandana.Network): Pandana network object for routing.
-        alt_network (pandana.Network): Alternate Pandana network object for accessibility-aware routing.
         db_connection (duckdb.DuckDBPyConnection): Connection to the main DuckDB database.
-        db_alt_connection (duckdb.DuckDBPyConnection): Connection to the alternate DuckDB database.
     Methods:
         __init__(gdf=None, db=None, db_alt=None, aceras=None, row=None, store=False):
             Initializes the Network object, loads or downloads the network, and optionally stores it.
@@ -44,10 +40,6 @@ class Network:
             Loads the network from the database or downloads it from OpenStreetMap, and constructs the Pandana network.
         __store_network():
             Stores the current network nodes and edges into the DuckDB database.
-        set_alternate_network():
-            Constructs an alternate network with accessibility attributes, either from the database or by intersecting with sidewalk data.
-        __store_alt_network():
-            Stores the alternate network nodes and edges into the alternate DuckDB database.
         route(coord1, coord2, alternate=False):
             Computes the shortest path between two coordinates using the main or alternate network.
         get_linestring(row):
@@ -77,20 +69,11 @@ class Network:
                 self.db_connection.close()
             self.db_connection = duckdb.connect(db)
 
-        if db_alt is not None:
-            if hasattr(self, "db_alt_connection") and self.db_alt_connection is not None:
-                self.db_alt_connection.close()
-            self.db_alt_connection = duckdb.connect(db_alt)
-
         self.__get_network()
-        self.set_alternate_network()
         
         if store:
             self.__store_network()
             
-        if store and hasattr(self, 'alt_network'):
-            self.__store_alt_network()
-
 
     def __get_network(self):
         """
@@ -107,6 +90,7 @@ class Network:
         
         if self.gdf is None:
             try:
+                print("Loading network from database")
                 self.nodes = self.db_connection.execute("SELECT * FROM nodes").fetchdf()
                 self.edges = self.db_connection.execute("SELECT * FROM edges").fetchdf()
                 self.nodes.set_index('index', inplace=True)
@@ -114,7 +98,9 @@ class Network:
                 self.nodes['y'] = self.nodes['y'].astype('float64')
                 self.edges['from'] = self.edges['from'].astype('int64')
                 self.edges['to']   = self.edges['to'].astype('int64')
-                self.edges['distance'] = self.edges['distance'].astype('float64')
+                self.edges['distance'] = self.edges['distance'].astype('float64') 
+                self.edges['accesibility'] = self.edges['accesibility'].astype('int64')
+                self.edges['alt_distance'] = self.edges['alt_distance'].astype('float64')
             except Exception as e:
                 print(f"Error loading network from database: {e}")
                 return None, None
@@ -137,6 +123,39 @@ class Network:
             _to = [v for u, v, _ in self.graph.edges]
             _distance = [data['length'] for u, v, data in self.graph.edges(data=True)]
             self.edges = pd.DataFrame({'from': _from, 'to': _to, 'distance': _distance})
+            
+            print('Computing geometries')
+            
+            self.edges['geometry'] = self.edges.apply(lambda row: self.get_linestring(row), axis=1)
+            self.edges = gpd.GeoDataFrame(self.edges, geometry='geometry', crs='EPSG:4326')
+            self.aceras = self.aceras.to_crs(self.edges.crs)
+            self.edges[self.row] = None
+            sindex = self.aceras.sindex
+
+            print("Computing accessibility")
+
+            for i, geom in enumerate(self.edges.geometry):
+                # Filtrar posibles intersecciones por bounding box
+                possible_idx = list(sindex.intersection(geom.bounds))
+                possible_matches = self.aceras.iloc[possible_idx]
+                
+                # Filtrar solo las que realmente intersectan
+                intersecting = possible_matches[possible_matches.geometry.intersects(geom)]
+                
+                # Asignar mínimo Ancho_medio (o None si no hay intersecciones)
+                self.edges.loc[i, self.row] = intersecting[self.row].min() if not intersecting.empty else None
+
+            self.edges[self.row] = self.edges[self.row].fillna(0)
+            self.edges['accesibility'] = np.where(self.edges[self.row] >= 1.50, 1, 0)
+            self.edges['alt_distance'] = self.edges['distance']/(10**self.edges['accesibility'])
+
+        self.alt_network = pandana.Network(
+                                self.nodes['x'],
+                                self.nodes['y'],
+                                self.edges['from'],
+                                self.edges['to'],
+                                self.edges[['alt_distance']]
+                                )
 
         self.network = pandana.Network(
                                 self.nodes['x'],
@@ -163,94 +182,13 @@ class Network:
         print('Storing network in DuckDB')
         self.nodes.reset_index(drop=False, inplace=True)
         self.db_connection.register("df_nodes", self.nodes)
-        self.db_connection.register("df_edges", self.edges)
+        self.db_connection.register("df_edges", self.edges.drop(columns=['geometry']))
 
         self.db_connection.execute("CREATE OR REPLACE TABLE nodes AS SELECT * FROM df_nodes")
         self.db_connection.execute("CREATE OR REPLACE TABLE edges AS SELECT * FROM df_edges")
         self.nodes.set_index('index', inplace=True)   
 
 
-    def set_alternate_network(self):
-        """
-        Sets up an alternate network for routing, either by loading edge data from an alternate database connection
-        or by modifying a copy of the existing edges with accessibility information.
-        If no GeoDataFrame (`self.gdf`) is present, attempts to load edge data from the alternate database connection,
-        ensuring correct data types for relevant columns.
-        If a GeoDataFrame is present, copies the current edges, computes new geometries, and enriches the edges with
-        accessibility information based on intersections with sidewalk data (`self.aceras`). The accessibility is
-        determined by the minimum width (`self.row`) of intersecting sidewalks, and an accessibility flag is set
-        based on a threshold. The alternate distance is then adjusted according to accessibility.
-        Finally, constructs a new `pandana.Network` object using the alternate edge data and stores it in `self.alt_network`.
-        Returns:
-            None. Updates instance attributes in place.
-        """
-
-        if self.gdf is None:
-            try:
-                self.edges_alt = self.db_alt_connection.execute("SELECT * FROM edges").fetchdf()
-                self.edges_alt['from'] = self.edges_alt['from'].astype('int64')
-                self.edges_alt['to']   = self.edges_alt['to'].astype('int64')
-                self.edges_alt['distance'] = self.edges_alt['distance'].astype('float64')
-                self.edges_alt['alt_distance'] = self.edges_alt['alt_distance'].astype('float64')
-            except Exception as e:
-                print(f"Error loading network from database: {e}")
-                return None, None
-
-        else:
-            self.edges_alt = self.edges.copy()
-
-            self.edges_alt['geometry'] = self.edges_alt.apply(lambda row: self.get_linestring(row), axis=1)
-            self.edges_alt = gpd.GeoDataFrame(self.edges_alt, geometry='geometry', crs='EPSG:4326')
-
-            self.aceras = self.aceras.to_crs(self.edges_alt.crs)
-            self.edges_alt[self.row] = None
-            sindex = self.aceras.sindex
-
-            for i, geom in enumerate(self.edges_alt.geometry):
-                # Filtrar posibles intersecciones por bounding box
-                possible_idx = list(sindex.intersection(geom.bounds))
-                possible_matches = self.aceras.iloc[possible_idx]
-                
-                # Filtrar solo las que realmente intersectan
-                intersecting = possible_matches[possible_matches.geometry.intersects(geom)]
-                
-                # Asignar mínimo Ancho_medio (o None si no hay intersecciones)
-                self.edges_alt.loc[i, self.row] = intersecting[self.row].min() if not intersecting.empty else None
-
-            self.edges_alt[self.row] = self.edges_alt[self.row].fillna(0)
-            self.edges_alt['accesibility'] = np.where(self.edges_alt[self.row] >= 1.50, 1, 0)
-            
-            self.edges_alt['alt_distance'] = self.edges_alt['distance']/(10**self.edges_alt['accesibility'])
-
-        self.alt_network = pandana.Network(
-                                self.nodes['x'],
-                                self.nodes['y'],
-                                self.edges_alt['from'],
-                                self.edges_alt['to'],
-                                self.edges_alt[['alt_distance']]
-                                )
-        
-    def __store_alt_network(self):
-        """
-        Stores the alternative network's nodes and edges in the connected DuckDB database.
-        This method resets the index of the nodes DataFrame, registers both nodes and edges DataFrames 
-        (excluding the 'geometry' column from edges) as tables in DuckDB, and creates or replaces the 
-        corresponding tables in the database. After storing, it restores the original index of the nodes DataFrame.
-        Raises:
-            ValueError: If the database connection (`db_alt_connection`) is not set.
-        """
-        
-        if self.db_alt_connection is None:
-            raise ValueError("Database connection is not set.")
-
-        print('Storing network in DuckDB')
-        self.nodes.reset_index(drop=False, inplace=True)
-        self.db_alt_connection.register("df_nodes", self.nodes)
-        self.db_alt_connection.register("df_edges", self.edges_alt.drop(columns=['geometry']))
-
-        self.db_alt_connection.execute("CREATE OR REPLACE TABLE nodes AS SELECT * FROM df_nodes")
-        self.db_alt_connection.execute("CREATE OR REPLACE TABLE edges AS SELECT * FROM df_edges")
-        self.nodes.set_index('index', inplace=True)   
 
     def route(self, coord1, coord2, alternate=False):
         """
@@ -269,7 +207,7 @@ class Network:
         lon = pd.Series([lon1, lon2])
         lat = pd.Series([lat1, lat2])
 
-        if alternate and hasattr(self, 'alt_network'):
+        if alternate:
             id = self.alt_network.get_node_ids(lon, lat)
             path = self.alt_network.shortest_path(id[0], id[1])
         else:
@@ -298,8 +236,8 @@ class Network:
         coords = [(from_['x'], from_['y']), (to_['x'], to_['y'])]
         
         return LineString(coords)
-    
-    def path(self, node_list):
+
+    def path(self, node_list, alternate=False):
         """
         Constructs a GeoDataFrame representing the path defined by a sequence of nodes.
         Given a list of node identifiers, this method finds the corresponding edges between consecutive nodes,
@@ -309,7 +247,7 @@ class Network:
         Returns:
             geopandas.GeoDataFrame: A GeoDataFrame containing the edges along the path, each with its geometry.
         """
-        
+
         pairs = [(node_list[i], node_list[i + 1]) for i in range(len(node_list) - 1)]
         ed = [self.edges[(self.edges['from'] == p[0]) & (self.edges['to'] == p[1])] for p in pairs]
         ed = pd.concat(ed)
@@ -330,7 +268,7 @@ class Network:
         """
         
         pat = self.route(coord1, coord2, alternate)
-        ed = self.path(pat)
+        ed = self.path(pat, alternate=alternate)
         return ed
     
     
@@ -402,6 +340,7 @@ def ruta_to_json(ruta):
         step = {
             "distance": float(row['distance']),
             "duration": float(row['distance']) / 1.3,
+            "accesible": row['accesibility'],
             "geometry": step_geom,
             "maneuver": {
                 "instruction": "Continue",
