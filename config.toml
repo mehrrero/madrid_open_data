@@ -47,3 +47,6 @@ data_dir = "rampa/data"
 notebooks_dir = "notebooks"
 grafo_db = "rampa/duckdb/databases/grafo.db"
 pois_db = "rampa/duckdb/databases/rampa.db"
+
+[data_analysis]
+secciones_censales = "rampa/data/Secciones_Censales/SECCIONES_CENSALES.shp"

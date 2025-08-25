@@ -18,6 +18,7 @@ from rampa.config import config, get_db_path
 from rampa.duckdb.connection import get_duckdb_connection
 from rampa.query.duckdb_tools import DataManager
 from rampa.duckdb.src.run_transformations import run_transform_pipeline
+from rampa.analysis.tools import analysis
 
 # Setup logging
 logger.add("setup_{time}.log")
@@ -114,6 +115,8 @@ def setup_network():
     pois = POIManager(urls_dict, db=config.paths['pois_db'], store=True)
 
     logger.info("Everything stored in DB successfully")
+
+    analysis(net)
 
 def main():
     """Entry point for the rampa-setup script."""

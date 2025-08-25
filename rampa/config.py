@@ -37,6 +37,7 @@ class Config:
             self.transform = data.get('transform', {})
             self.paths = data.get('paths', {})
             self.madrid_api = data.get('madrid_api', {})
+            self.data_analysis = data.get('data_analysis', {})
 
         else:
             # Fallback defaults
