@@ -4,7 +4,7 @@
 # Show RAMPA banner
 banner:
     #!/usr/bin/env bash
-    uv run -c "import pyfiglet; print(pyfiglet.figlet_format('RAMPA', font='slant'))"
+    pyfiglet RAMPA
 
 # Default command
 default:

@@ -98,6 +98,10 @@ def analysis(network):
     distrito = distrito.rename(columns={
         'NOM_DIS_no_acc': 'NOM_DIS',
     })
+    
+    seccion.to_crs('EPSG:4326', inplace=True)
+    barrio.to_crs('EPSG:4326', inplace=True)
+    distrito.to_crs('EPSG:4326', inplace=True)
 
     seccion.to_file(config.paths['data_dir']+'/seccion.geojson', driver='GeoJSON')
     barrio.to_file(config.paths['data_dir']+'/barrio.geojson', driver='GeoJSON')
