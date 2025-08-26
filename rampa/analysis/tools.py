@@ -104,3 +104,57 @@ def analysis(network):
     distrito.to_file(config.paths['data_dir']+'/distrito.geojson', driver='GeoJSON')
 
     print('Done.')
+    
+def cumulative(df, criteria):
+    sec = gpd.read_file(config.paths['data_dir']+'/seccion.geojson')
+    sec = sec.rename(columns={
+        'COD_SECCIO': 'census_section_id'
+    })
+
+    if criteria != 'gender':
+        df = df[df['gender'] == 'ALL']
+    else:
+        df = df[df['gender'] != 'ALL']
+
+    if criteria == 'age_group':
+       columns =  ['census_section_id', 'age_group']
+       groups = df['age_group'].unique()
+        
+    elif criteria == 'gender':
+        columns = ['census_section_id', 'gender']
+        groups = df['gender'].unique()
+
+    else:
+        columns = ['census_section_id']
+        groups = None
+        
+    dfg = df.groupby(columns).agg(
+        {
+            'population_count': 'sum',
+            'district_id': 'first',
+            'district_name': 'first',
+            'neighborhood_id': 'first',
+            'neighborhood_name': 'first',
+        }
+    )
+    dfg.reset_index(inplace=True)
+    merged = sec.merge(dfg, on='census_section_id', how='left')
+    # Drop rows with missing values in 'population_count' or 'ratio'
+    data = merged.dropna(subset=['population_count', 'ratio'])
+    # Sort by ratio
+    data_sorted = data.sort_values('ratio')
+    out = {}
+    if groups is not None:
+        for gr in groups:
+            dd = data_sorted[data_sorted[criteria] == gr]
+            y = 100 * dd['population_count'].cumsum() / dd['population_count'].sum()
+            x = dd['ratio']
+            out[gr] = {'x': x, 'y': y}
+    else:
+        # Compute cumulative sum of population_count
+        data_sorted['cum_population'] = data_sorted['population_count'].cumsum()
+        y = 100 * data_sorted['cum_population'] / data_sorted['population_count'].sum()
+        x = data_sorted['ratio']
+        out['total'] = {'x': x, 'y': y}
+
+    return out

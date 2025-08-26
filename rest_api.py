@@ -7,12 +7,25 @@ import pandas as pd
 import math
 from typing import List, Optional
 from rampa.config import config
+import geopandas as gpd
+from rampa.analysis.tools import cumulative
 
 
 
 app = FastAPI()
 network = Network(db=config.paths['grafo_db'])
 db_connection = duckdb.connect(config.paths['pois_db'])
+
+demo = db_connection.execute(
+        f"""
+        SELECT *
+        FROM fact_demographics_age_groups fd
+        JOIN dim_geography dg
+        ON fd.census_section_id = dg.census_section_id
+        """
+    ).fetchdf()
+
+demo.drop('geom', axis=1, inplace=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -325,21 +338,22 @@ async def get_poi_categories():
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
+##### DATA ANALYSIS ENDPOINTS #####
 
-@app.get("/edge/{ID}")
-async def get_edge_data(ID: str):
-    """
-    Get data for a specific edge by its ID.
-    """
-    try:
-        edge_data = db_connection.execute(
-            "SELECT * FROM edges WHERE ID = ?", [ID]
-        ).fetchone()
+@app.get("/accesibility/{type}")
+async def get_accesibility(type: str):
+    if type not in ['seccion', 'barrio', 'distrito']:
+        raise HTTPException(status_code=400, detail="Invalid type")
 
-        if edge_data is None:
-            raise HTTPException(status_code=404, detail="Edge not found")
+    gdf = gpd.read_file(config.paths['data_dir'] + f'/{type}.geojson')
+    gdf_json = gdf.to_json()
+    
+    return json.loads(gdf_json)
 
-        return edge_data
+@app.get("/accesibility/cumul/{type}/cumulative")
+async def get_accesibility_cumulative(type: str):
+    if type not in ['total', 'gender', 'age_group']:
+        raise HTTPException(status_code=400, detail="Invalid type")
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    js = cumulative(demo, type)
+    return js
