@@ -138,12 +138,21 @@ class Network:
                 # Filtrar posibles intersecciones por bounding box
                 possible_idx = list(sindex.intersection(geom.bounds))
                 possible_matches = self.aceras.iloc[possible_idx]
-                
+
                 # Filtrar solo las que realmente intersectan
                 intersecting = possible_matches[possible_matches.geometry.intersects(geom)]
-                
+
+                if not intersecting.empty:
+                    # Calcular longitud de intersección para cada una
+                    intersecting["intersection_length"] = intersecting.geometry.apply(
+                        lambda g: geom.intersection(g).length
+                    )
+
+                    # Encontrar la geometría con la intersección más larga
+                    max_row = intersecting.loc[intersecting["intersection_length"].idxmax()]
+
                 # Asignar mínimo Ancho_medio (o None si no hay intersecciones)
-                self.edges.loc[i, self.row] = intersecting[self.row].min() if not intersecting.empty else None
+                self.edges.loc[i, self.row] = max_row.self_row if not intersecting.empty else None
 
             self.edges[self.row] = self.edges[self.row].fillna(0)
             self.edges['accesibility'] = np.where(self.edges[self.row] >= 1.50, 1, 0)
